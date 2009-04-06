@@ -2,12 +2,14 @@ module Havoc.MiniChess.Move where
 
 import Havoc.State
 
-type Move Square
+data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest
+type Move (Square, Square)
 
-line from_square to_square = undefined
+line :: Square -> Direction -> Square
+line square direction = undefined
     
-moves :: Position
-moves position = undefined
+moves :: Position -> [Move]
+moves ((i,j), Pawn) = undefined
 
 moveGen :: State -> [Move]
 moveGen state = concat [moves position | position <- pieces (board state)]

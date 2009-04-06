@@ -63,19 +63,19 @@ instance Read Piece where
                 | otherwise  = Black
 
 readBoard :: String -> Board
-readBoard text = listArray ((0,0),(x-1,y-1)) pieces
+readBoard text = listArray ((0,0),(i-1,j-1)) pieces
     where
         ls = lines (dropWhile isSpace text)
-        x = length ls
-        y = length (head ls)
+        i = length ls
+        j = length (head ls)
         pieces = map (read . (:[])) (concat ls)
 
 showBoard :: Board -> String
 showBoard board =
     unlines [concat
-                [show (board ! (y,x)) | x <- [minX..maxX]]
-            | y <- [minY..maxY]]
-    where ((minY,minX),(maxY,maxX)) = bounds board
+                [show (board ! (j,i)) | i <- [lj..uj]]
+            | j <- [li..ui]]
+    where ((li,lj),(ui,uj)) = bounds board
 
 pieces :: Board -> [Position]
 pieces board = filter (\(s,p) -> p /= Blank) (assocs board)
