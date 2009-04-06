@@ -1,6 +1,8 @@
 module Havoc.MiniChess.Move where
 
+import Data.Ix (inRange)
 import Data.List (unfoldr, union)
+import Data.Array (bounds)
 import Havoc.State
 import Havoc.MiniChess.Game
 
@@ -11,9 +13,10 @@ type Move = (Square, Square)
 -- E.g. [[1,2], [3,4]] => [1,3,2,4]
 stripe :: [[a]] -> [a]
 stripe =  concat . (unfoldr next)
-       where next b = if (not (all null b))
-                          then Just (map head b, filter (not . null) (map tail b))
+       where next b = if (not (null b'))
+                          then Just (map head b', map tail b')
                           else Nothing
+                    where b' = filter (not . null) b
 
 move :: Direction -> Square -> Square
 move North     (i,j) = (i+1,j)
@@ -25,26 +28,27 @@ move Southeast (i,j) = (i-1,j+1)
 move Southwest (i,j) = (i-1,j-1)
 move Northwest (i,j) = (i+1,j-1)
 
-moves :: [Direction] -> Square -> [Square]
-moves directions square = map (`move` square) directions
+moveLine :: Direction -> BoardSize -> Square -> [Square]
+moveLine direction size square = takeWhile (inRange size) $ drop 1 (iterate (move direction) square)
 
-moveLine :: Direction -> Square -> [Square]
-moveLine direction square = drop 1 (iterate (move direction) square)
+moves :: [Direction] -> BoardSize -> Square -> [Square]
+moves directions size square = filter (inRange size) $ map (`move` square) directions
 
-moveLines :: [Direction] -> Square -> [Square]
-moveLines directions square = stripe $ map (`moveLine` square) directions
+moveLines :: [Direction] -> BoardSize -> Square -> [Square]
+moveLines directions size square = stripe $ map (\d -> moveLine d size square) directions
 
-knightMoves :: Square -> [Square]
-knightMoves (i,j) = concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
+knightMoves :: BoardSize -> Square -> [Square]
+knightMoves size (i,j) = filter (inRange size) $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
 
-chessMoves :: Position -> [Square]
-chessMoves (square, Piece _     King)   = moves [North .. Northwest] square
-chessMoves (square, Piece _     Queen)  = moveLines [North .. Northwest] square
-chessMoves (square, Piece _     Rook)   = moveLines [North, East, South, West] square
-chessMoves (square, Piece _     Bishop) = (moves [North, East, South, West] square) `union` (moveLines [Northeast, Southeast, Southwest, Northwest] square)
-chessMoves (square, Piece _     Knight) = knightMoves square
-chessMoves (square, Piece White Pawn)   = [move North square]
-chessMoves (square, Piece Black Pawn)   = [move South square]
+chessMoves :: BoardSize -> Position -> [Square]
+chessMoves size (square, Piece _     King)   = moves [North .. Northwest] size square
+chessMoves size (square, Piece _     Queen)  = moveLines [North .. Northwest] size square
+chessMoves size (square, Piece _     Rook)   = moveLines [North, East, South, West] size square
+chessMoves size (square, Piece _     Bishop) = (moves [North, East, South, West] size square) `union` (moveLines [Northeast, Southeast, Southwest, Northwest] size square)
+chessMoves size (square, Piece _     Knight) = knightMoves size square
+chessMoves size (square, Piece White Pawn)   = moves [North] size square
+chessMoves size (square, Piece Black Pawn)   = moves [South] size square
 
 moveGen :: State -> [Move]
-moveGen state = stripe [map ((,) square) (chessMoves position) | position@(square, _) <- pieces (board state)]
+moveGen state = stripe [map ((,) square) (chessMoves (bounds board') position) | position@(square, _) <- pieces board']
+              where board' = board state

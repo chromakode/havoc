@@ -8,6 +8,7 @@ data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
 data Piece = Piece Color PieceType | Blank deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
+type BoardSize = ((Int,Int), (Int,Int))
 type Board = Array (Int,Int) Piece
 
 data State = State { turn  :: Int,
