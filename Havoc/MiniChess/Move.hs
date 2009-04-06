@@ -50,5 +50,7 @@ chessMoves size (square, Piece White Pawn)   = moves [North] size square
 chessMoves size (square, Piece Black Pawn)   = moves [South] size square
 
 moveGen :: State -> [Move]
-moveGen state = stripe [map ((,) square) (chessMoves (bounds board') position) | position@(square, _) <- pieces board']
+moveGen state = stripe [map ((,) square) (chessMoves (bounds board') position)
+                           | position@(square, Piece pieceColor _) <- pieces board'
+                           , pieceColor == (color state) ]
               where board' = board state
