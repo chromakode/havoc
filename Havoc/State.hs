@@ -1,10 +1,14 @@
+module Havoc.State where
+
 import Data.Array
 import Data.Char
 
-data Color = White | Black
-data PieceType = King | Queen | Bishop | Knight | Rook | Pawn
-data Piece = Piece Color PieceType | Blank
-type Board = Array (Int, Int) Piece
+data Color = White | Black deriving Eq
+data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
+data Piece = Piece Color PieceType | Blank deriving Eq
+type Square = (Int,Int)
+type Position = (Square, Piece)
+type Board = Array (Int,Int) Piece
 
 data State = State { turn  :: Int,
                      color :: Color,
@@ -72,6 +76,9 @@ showBoard board =
                 [show (board ! (y,x)) | x <- [minX..maxX]]
             | y <- [minY..maxY]]
     where ((minY,minX),(maxY,maxX)) = bounds board
+
+pieces :: Board -> [Position]
+pieces board = filter (\(s,p) -> p /= Blank) (assocs board)
 
 instance Show State where
     show (State turn color board) =
