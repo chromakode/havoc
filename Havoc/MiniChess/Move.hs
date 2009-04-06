@@ -19,14 +19,14 @@ stripe =  concat . (unfoldr next)
                     where b' = filter (not . null) b
 
 move :: Direction -> Square -> Square
-move North     (i,j) = (i+1,j)
-move South     (i,j) = (i-1,j)
+move North     (i,j) = (i-1,j)
+move South     (i,j) = (i+1,j)
 move East      (i,j) = (i,j+1)
 move West      (i,j) = (i,j-1)
-move Northeast (i,j) = (i+1,j+1)
-move Southeast (i,j) = (i-1,j+1)
-move Southwest (i,j) = (i-1,j-1)
-move Northwest (i,j) = (i+1,j-1)
+move Northeast (i,j) = (i-1,j+1)
+move Southeast (i,j) = (i+1,j+1)
+move Southwest (i,j) = (i+1,j-1)
+move Northwest (i,j) = (i-1,j-1)
 
 moveLine :: Direction -> BoardSize -> Square -> [Square]
 moveLine direction size square = takeWhile (inRange size) $ drop 1 (iterate (move direction) square)
