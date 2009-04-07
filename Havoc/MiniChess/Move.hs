@@ -81,11 +81,18 @@ chessMoves board (square, Piece _     Knight) = knightMoves board square
 chessMoves board (square, Piece White Pawn)   = (dirMoves Move [North] board square) `union` (dirMoves Capture [Northwest, Northeast] board square)
 chessMoves board (square, Piece Black Pawn)   = (dirMoves Move [South] board square) `union` (dirMoves Capture [Southwest, Southeast] board square)
 
+moveGenPosition :: State -> Position -> [Move]
+moveGenPosition state position@(fromSquare, _) = map ((,) fromSquare) (chessMoves (board state) position)
+
+moveGenSquare :: State -> Square -> [Move]
+moveGenSquare state fromSquare = moveGenPosition state (fromSquare, (board state) ! fromSquare)
+
 moveGen :: State -> [Move]
-moveGen state = stripe [map ((,) square) (chessMoves board' position)
-                           | position@(square, Piece pieceColor _) <- pieces board'
-                           , pieceColor == (color state) ]
-              where board' = board state
+moveGen state =
+    stripe [moveGenPosition state position
+               | position@(square, Piece pieceColor _) <- pieces board'
+               , pieceColor == (color state) ]
+    where board' = board state
               
 move :: Move -> State -> State
 move (fromSquare, toSquare) (State turn color board)
@@ -97,4 +104,4 @@ move (fromSquare, toSquare) (State turn color board)
         movedColor = colorOf movedPiece
 
 validMove :: State -> Move -> Bool
-validMove state move = move `elem` (moveGen state)
+validMove state move@(fromSquare, _) = move `elem` (moveGenSquare state fromSquare)
