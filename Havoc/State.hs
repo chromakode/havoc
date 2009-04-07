@@ -5,7 +5,10 @@ import Data.Char
 
 data Color = White | Black deriving Eq
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
-data Piece = Piece Color PieceType | Blank deriving Eq
+data Piece = Piece { colorOf   :: Color,
+                     pieceType :: PieceType }
+           | Blank
+           deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board = Array (Int,Int) Piece
@@ -24,6 +27,10 @@ instance Read Color where
             colorOf "W" = [White]
             colorOf "B" = [Black]
             colorOf _   = []
+
+invertColor :: Color -> Color
+invertColor White = Black
+invertColor Black = White
 
 instance Show PieceType where
     show King   = "K"

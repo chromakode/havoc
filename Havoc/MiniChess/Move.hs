@@ -2,7 +2,7 @@ module Havoc.MiniChess.Move where
 
 import Data.Ix (inRange)
 import Data.List (unfoldr, union)
-import Data.Array (bounds)
+import Data.Array ((!), (//), bounds)
 import Havoc.State
 import Havoc.MiniChess.Game -- XXX: Remove later
 
@@ -24,15 +24,15 @@ takeWhile1 :: (a -> Bool) -> [a] -> [a]
 takeWhile1 p (x:xs) = x : if p x then takeWhile1 p xs else []
 takeWhile1 p []     = []
 
-move :: Direction -> Square -> Square
-move North     (i,j) = (i-1,j)
-move South     (i,j) = (i+1,j)
-move East      (i,j) = (i,j+1)
-move West      (i,j) = (i,j-1)
-move Northeast (i,j) = (i-1,j+1)
-move Southeast (i,j) = (i+1,j+1)
-move Southwest (i,j) = (i+1,j-1)
-move Northwest (i,j) = (i-1,j-1)
+dirMove :: Direction -> Square -> Square
+dirMove North     (i,j) = (i-1,j)
+dirMove South     (i,j) = (i+1,j)
+dirMove East      (i,j) = (i,j+1)
+dirMove West      (i,j) = (i,j-1)
+dirMove Northeast (i,j) = (i-1,j+1)
+dirMove Southeast (i,j) = (i+1,j+1)
+dirMove Southwest (i,j) = (i+1,j-1)
+dirMove Northwest (i,j) = (i-1,j-1)
 
 validPointMove :: MoveType -> Board -> Square -> Bool
 validPointMove capture board square
@@ -48,14 +48,14 @@ validPointMoves capture board = filter (validPointMove capture board)
 dirMoves :: MoveType -> [Direction] -> Board -> Square -> [Square]
 dirMoves capture directions board square
     = validPointMoves capture board
-    $ map (`move` square) directions
+    $ map (`dirMove` square) directions
 
 lineMove :: MoveType -> Direction -> Board -> Square -> [Square]
 lineMove capture direction board square
     = untilBlocked
     . takeWhile (inRange (bounds board))
     . drop 1
-    $ iterate (move direction) square
+    $ iterate (dirMove direction) square
     where
         untilBlocked
             = case capture of
@@ -87,3 +87,12 @@ moveGen state = stripe [map ((,) square) (chessMoves board' position)
                            | position@(square, Piece pieceColor _) <- pieces board'
                            , pieceColor == (color state) ]
               where board' = board state
+              
+move :: State -> Move -> State
+move (State turn color board) (fromSquare, toSquare)
+    | movedPiece == Blank = error ("Move.move: no piece at position " ++ (show fromSquare))
+    | color /= movedColor = error "Move.move: piece does not belong to color on move"
+    | otherwise           = State (turn+1) (invertColor color) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
+    where
+        movedPiece = board ! fromSquare
+        movedColor = colorOf movedPiece
