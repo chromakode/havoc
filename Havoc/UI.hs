@@ -16,5 +16,8 @@ decodeMove moveStr = (decodeCoord fromCoord, decodeCoord toCoord)
         (fromCoord, '-':toCoord) = span (/='-') moveStr
 
 humanMove :: String -> State -> State
-humanMove moveStr state = move (decodeMove moveStr) state
+humanMove moveStr state 
+    | validMove state m  = move m state
+    | otherwise          = error "UI.humanMove: invalid move specified"
+    where m = decodeMove moveStr
         

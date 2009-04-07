@@ -95,4 +95,6 @@ move (fromSquare, toSquare) (State turn color board)
     where
         movedPiece = board ! fromSquare
         movedColor = colorOf movedPiece
-        
+
+validMove :: State -> Move -> Bool
+validMove state move = move `elem` (moveGen state)
