@@ -8,7 +8,6 @@ data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
 data Piece = Piece Color PieceType | Blank deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
-type BoardSize = ((Int,Int), (Int,Int))
 type Board = Array (Int,Int) Piece
 
 data State = State { turn  :: Int,
@@ -78,8 +77,11 @@ showBoard board =
             | j <- [li..ui]]
     where ((li,lj),(ui,uj)) = bounds board
 
+isBlank :: Board -> Square -> Bool
+isBlank board square = (board ! square) == Blank
+
 pieces :: Board -> [Position]
-pieces board = filter (\(s,p) -> p /= Blank) (assocs board)
+pieces board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
 
 instance Show State where
     show (State turn color board) =
@@ -89,4 +91,5 @@ instance Show State where
 instance Read State where
     readsPrec p s = [(State turn color (readBoard u), "")
                         | (turn, t)  <- readsPrec p s
-                        , (color, u) <- readsPrec p t]
+                        , (color, u) <- readsPrec p t]                      
+

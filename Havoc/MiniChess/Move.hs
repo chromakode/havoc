@@ -4,10 +4,11 @@ import Data.Ix (inRange)
 import Data.List (unfoldr, union)
 import Data.Array (bounds)
 import Havoc.State
-import Havoc.MiniChess.Game
+import Havoc.MiniChess.Game -- XXX: Remove later
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
+data MoveType = Move | Capture | MoveCapture
 
 -- Take alternate items from a list of lists
 -- E.g. [[1,2], [3,4]] => [1,3,2,4]
@@ -17,6 +18,11 @@ stripe =  concat . (unfoldr next)
                           then Just (map head b', map tail b')
                           else Nothing
                     where b' = filter (not . null) b
+
+-- From the HUGS prelude, modded
+takeWhile1 :: (a -> Bool) -> [a] -> [a]
+takeWhile1 p (x:xs) = x : if p x then takeWhile1 p xs else []
+takeWhile1 p []     = []
 
 move :: Direction -> Square -> Square
 move North     (i,j) = (i-1,j)
@@ -28,29 +34,56 @@ move Southeast (i,j) = (i+1,j+1)
 move Southwest (i,j) = (i+1,j-1)
 move Northwest (i,j) = (i-1,j-1)
 
-moveLine :: Direction -> BoardSize -> Square -> [Square]
-moveLine direction size square = takeWhile (inRange size) $ drop 1 (iterate (move direction) square)
+validPointMove :: MoveType -> Board -> Square -> Bool
+validPointMove capture board square
+    =  inRange (bounds board) square
+    && case capture of
+         Move        -> isBlank board square
+         Capture     -> (not . isBlank board) square
+         MoveCapture -> True
 
-moves :: [Direction] -> BoardSize -> Square -> [Square]
-moves directions size square = filter (inRange size) $ map (`move` square) directions
+validPointMoves :: MoveType -> Board -> [Square] -> [Square]
+validPointMoves capture board = filter (validPointMove capture board)
 
-moveLines :: [Direction] -> BoardSize -> Square -> [Square]
-moveLines directions size square = stripe $ map (\d -> moveLine d size square) directions
+dirMoves :: MoveType -> [Direction] -> Board -> Square -> [Square]
+dirMoves capture directions board square
+    = validPointMoves capture board
+    $ map (`move` square) directions
 
-knightMoves :: BoardSize -> Square -> [Square]
-knightMoves size (i,j) = filter (inRange size) $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
+lineMove :: MoveType -> Direction -> Board -> Square -> [Square]
+lineMove capture direction board square
+    = untilBlocked
+    . takeWhile (inRange (bounds board))
+    . drop 1
+    $ iterate (move direction) square
+    where
+        untilBlocked
+            = case capture of
+                Move        -> takeWhile (isBlank board)
+                Capture     -> take 1 . dropWhile (isBlank board)
+                MoveCapture -> takeWhile1 (isBlank board)
 
-chessMoves :: BoardSize -> Position -> [Square]
-chessMoves size (square, Piece _     King)   = moves [North .. Northwest] size square
-chessMoves size (square, Piece _     Queen)  = moveLines [North .. Northwest] size square
-chessMoves size (square, Piece _     Rook)   = moveLines [North, East, South, West] size square
-chessMoves size (square, Piece _     Bishop) = (moves [North, East, South, West] size square) `union` (moveLines [Northeast, Southeast, Southwest, Northwest] size square)
-chessMoves size (square, Piece _     Knight) = knightMoves size square
-chessMoves size (square, Piece White Pawn)   = moves [North] size square
-chessMoves size (square, Piece Black Pawn)   = moves [South] size square
+lineMoves :: MoveType -> [Direction] -> Board -> Square -> [Square]
+lineMoves capture directions board square
+    = stripe 
+    $ map (\d -> lineMove capture d board square) directions
+
+knightMoves :: Board -> Square -> [Square]
+knightMoves board square@(i,j)
+    = validPointMoves MoveCapture board
+    $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
+
+chessMoves :: Board -> Position -> [Square]
+chessMoves board (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] board square
+chessMoves board (square, Piece _     Queen)  = lineMoves MoveCapture [North .. Northwest] board square
+chessMoves board (square, Piece _     Rook)   = lineMoves MoveCapture [North, East, South, West] board square
+chessMoves board (square, Piece _     Bishop) = (dirMoves Move [North, East, South, West] board square) `union` (lineMoves MoveCapture [Northeast, Southeast, Southwest, Northwest] board square)
+chessMoves board (square, Piece _     Knight) = knightMoves board square
+chessMoves board (square, Piece White Pawn)   = (dirMoves Move [North] board square) `union` (dirMoves Capture [Northwest, Northeast] board square)
+chessMoves board (square, Piece Black Pawn)   = (dirMoves Move [South] board square) `union` (dirMoves Capture [Southwest, Southeast] board square)
 
 moveGen :: State -> [Move]
-moveGen state = stripe [map ((,) square) (chessMoves (bounds board') position)
+moveGen state = stripe [map ((,) square) (chessMoves board' position)
                            | position@(square, Piece pieceColor _) <- pieces board'
                            , pieceColor == (color state) ]
               where board' = board state
