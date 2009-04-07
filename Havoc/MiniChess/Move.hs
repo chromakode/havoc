@@ -4,7 +4,6 @@ import Data.Ix (inRange)
 import Data.List (unfoldr, union)
 import Data.Array ((!), (//), bounds)
 import Havoc.State
-import Havoc.MiniChess.Game -- XXX: Remove later
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
@@ -88,11 +87,12 @@ moveGen state = stripe [map ((,) square) (chessMoves board' position)
                            , pieceColor == (color state) ]
               where board' = board state
               
-move :: State -> Move -> State
-move (State turn color board) (fromSquare, toSquare)
+move :: Move -> State -> State
+move (fromSquare, toSquare) (State turn color board)
     | movedPiece == Blank = error ("Move.move: no piece at position " ++ (show fromSquare))
     | color /= movedColor = error "Move.move: piece does not belong to color on move"
     | otherwise           = State (turn+1) (invertColor color) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
     where
         movedPiece = board ! fromSquare
         movedColor = colorOf movedPiece
+        
