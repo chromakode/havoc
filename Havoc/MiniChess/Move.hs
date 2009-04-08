@@ -97,7 +97,7 @@ moveGenSquare state fromSquare = moveGenPosition state position
 moveGen :: State -> [Move]
 moveGen state@(State turn turnColor board) =
     stripe [moveGenPosition state position
-               | position@(square, Piece pieceColor _) <- pieces board
+               | position@(square, Piece pieceColor _) <- positions board
                , pieceColor == turnColor ]
               
 move :: Move -> State -> State

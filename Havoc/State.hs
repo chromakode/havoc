@@ -2,6 +2,8 @@ module Havoc.State where
 
 import Data.Array
 import Data.Char
+import Data.List
+import Data.Maybe
 
 data Color = White | Black deriving Eq
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
@@ -93,8 +95,11 @@ isColor board color square = (colorOf (board ! square)) == color
 isTurnColor :: State -> Square -> Bool
 isTurnColor (State turn turnColor board) square = isColor board turnColor square
 
-pieces :: Board -> [Position]
-pieces board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
+pieces :: Board -> [Piece]
+pieces board = filter (/=Blank) (elems board)
+
+positions :: Board -> [Position]
+positions board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
 
 instance Show State where
     show (State turn turnColor board) =
@@ -106,3 +111,8 @@ instance Read State where
                         | (turn, t)  <- readsPrec p s
                         , (turnColor, u) <- readsPrec p t]                      
 
+isGameOver :: State -> Bool
+isGameOver state
+    = (/=2) . length
+    . filter ((King==) . pieceType)
+    $ pieces (board state)
