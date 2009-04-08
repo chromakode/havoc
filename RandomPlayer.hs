@@ -2,6 +2,7 @@ import Random
 import Data.List
 import Havoc.State
 import Havoc.UI
+import Havoc.Move
 import Havoc.MiniChess.Move
 import Havoc.MiniChess.Game
 

@@ -2,7 +2,7 @@ module Havoc.UI where
 
 import Data.Char
 import Havoc.State
-import Havoc.MiniChess.Move
+import Havoc.Move
 
 decodeCoord :: String -> Square
 decodeCoord (alphaCol:numRow) = (row,column)
@@ -15,9 +15,9 @@ decodeMove moveStr = (decodeCoord fromCoord, decodeCoord toCoord)
     where
         (fromCoord, '-':toCoord) = span (/='-') moveStr
 
-humanMove :: String -> State -> State
-humanMove moveStr state 
-    | validMove state m  = move m state
+humanMove :: PieceMoveGen -> String -> State -> State
+humanMove pieceMoves moveStr state 
+    | validMove pieceMoves state m  = move m state
     | otherwise          = error "UI.humanMove: invalid move specified"
     where m = decodeMove moveStr
         
