@@ -18,10 +18,12 @@ stripe =  concat . (unfoldr next)
                           else Nothing
                     where b' = filter (not . null) b
 
--- From the HUGS prelude, modded
-takeWhile1 :: (a -> Bool) -> [a] -> [a]
-takeWhile1 p (x:xs) = x : if p x then takeWhile1 p xs else []
-takeWhile1 p []     = []
+takeWhileAnd :: (a -> Bool) -> ([a] -> [a]) -> [a] -> [a]
+takeWhileAnd p f xs = ys ++ f zs
+    where (ys,zs)   = span p xs
+
+takeIf :: Int -> (a -> Bool) -> [a] -> [a]
+takeIf n p = (filter p) . (take n)
 
 dirMove :: Direction -> Square -> Square
 dirMove North     (i,j) = (i-1,j)
@@ -33,24 +35,26 @@ dirMove Southeast (i,j) = (i+1,j+1)
 dirMove Southwest (i,j) = (i+1,j-1)
 dirMove Northwest (i,j) = (i-1,j-1)
 
-validPointMove :: MoveType -> Board -> Square -> Bool
-validPointMove capture board square
+canCapture state = not . isTurnColor state
+
+validPointMove :: MoveType -> State -> Square -> Bool
+validPointMove capture state@(State turn turnColor board) square
     =  inRange (bounds board) square
     && case capture of
          Move        -> isBlank board square
-         Capture     -> (not . isBlank board) square
-         MoveCapture -> True
+         Capture     -> (not . isBlank board) square && canCapture state square
+         MoveCapture -> isBlank board square || canCapture state square
 
-validPointMoves :: MoveType -> Board -> [Square] -> [Square]
-validPointMoves capture board = filter (validPointMove capture board)
+validPointMoves :: MoveType -> State -> [Square] -> [Square]
+validPointMoves capture state = filter (validPointMove capture state)
 
-dirMoves :: MoveType -> [Direction] -> Board -> Square -> [Square]
-dirMoves capture directions board square
-    = validPointMoves capture board
+dirMoves :: MoveType -> [Direction] -> State -> Square -> [Square]
+dirMoves capture directions state square
+    = validPointMoves capture state
     $ map (`dirMove` square) directions
 
-lineMove :: MoveType -> Direction -> Board -> Square -> [Square]
-lineMove capture direction board square
+lineMove :: MoveType -> Direction -> State -> Square -> [Square]
+lineMove capture direction state@(State turn turnColor board) square
     = untilBlocked
     . takeWhile (inRange (bounds board))
     . drop 1
@@ -59,46 +63,48 @@ lineMove capture direction board square
         untilBlocked
             = case capture of
                 Move        -> takeWhile (isBlank board)
-                Capture     -> take 1 . dropWhile (isBlank board)
-                MoveCapture -> takeWhile1 (isBlank board)
+                Capture     -> takeCaptureMove . dropWhile (isBlank board)
+                MoveCapture -> takeWhileAnd (isBlank board) takeCaptureMove
+                
+        takeCaptureMove = takeIf 1 (canCapture state)
 
-lineMoves :: MoveType -> [Direction] -> Board -> Square -> [Square]
-lineMoves capture directions board square
+lineMoves :: MoveType -> [Direction] -> State -> Square -> [Square]
+lineMoves capture directions state square
     = stripe 
-    $ map (\d -> lineMove capture d board square) directions
+    $ map (\d -> lineMove capture d state square) directions
 
-knightMoves :: Board -> Square -> [Square]
-knightMoves board square@(i,j)
-    = validPointMoves MoveCapture board
+knightMoves :: State -> Square -> [Square]
+knightMoves state square@(i,j)
+    = validPointMoves MoveCapture state
     $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
 
-chessMoves :: Board -> Position -> [Square]
-chessMoves board (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] board square
-chessMoves board (square, Piece _     Queen)  = lineMoves MoveCapture [North .. Northwest] board square
-chessMoves board (square, Piece _     Rook)   = lineMoves MoveCapture [North, East, South, West] board square
-chessMoves board (square, Piece _     Bishop) = (dirMoves Move [North, East, South, West] board square) `union` (lineMoves MoveCapture [Northeast, Southeast, Southwest, Northwest] board square)
-chessMoves board (square, Piece _     Knight) = knightMoves board square
-chessMoves board (square, Piece White Pawn)   = (dirMoves Move [North] board square) `union` (dirMoves Capture [Northwest, Northeast] board square)
-chessMoves board (square, Piece Black Pawn)   = (dirMoves Move [South] board square) `union` (dirMoves Capture [Southwest, Southeast] board square)
+chessMoves :: State -> Position -> [Square]
+chessMoves state (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] state square
+chessMoves state (square, Piece _     Queen)  = lineMoves MoveCapture [North .. Northwest] state square
+chessMoves state (square, Piece _     Rook)   = lineMoves MoveCapture [North, East, South, West] state square
+chessMoves state (square, Piece _     Bishop) = (dirMoves Move [North, East, South, West] state square) `union` (lineMoves MoveCapture [Northeast, Southeast, Southwest, Northwest] state square)
+chessMoves state (square, Piece _     Knight) = knightMoves state square
+chessMoves state (square, Piece White Pawn)   = (dirMoves Move [North] state square) `union` (dirMoves Capture [Northwest, Northeast] state square)
+chessMoves state (square, Piece Black Pawn)   = (dirMoves Move [South] state square) `union` (dirMoves Capture [Southwest, Southeast] state square)
 
 moveGenPosition :: State -> Position -> [Move]
-moveGenPosition state position@(fromSquare, _) = map ((,) fromSquare) (chessMoves (board state) position)
+moveGenPosition state position@(fromSquare, _) = map ((,) fromSquare) (chessMoves state position)
 
 moveGenSquare :: State -> Square -> [Move]
-moveGenSquare state fromSquare = moveGenPosition state (fromSquare, (board state) ! fromSquare)
+moveGenSquare state fromSquare = moveGenPosition state position
+    where position = (fromSquare, (board state) ! fromSquare)
 
 moveGen :: State -> [Move]
-moveGen state =
+moveGen state@(State turn turnColor board) =
     stripe [moveGenPosition state position
-               | position@(square, Piece pieceColor _) <- pieces board'
-               , pieceColor == (color state) ]
-    where board' = board state
+               | position@(square, Piece pieceColor _) <- pieces board
+               , pieceColor == turnColor ]
               
 move :: Move -> State -> State
-move (fromSquare, toSquare) (State turn color board)
-    | movedPiece == Blank = error ("Move.move: no piece at position " ++ (show fromSquare))
-    | color /= movedColor = error "Move.move: piece does not belong to color on move"
-    | otherwise           = State (turn+1) (invertColor color) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
+move (fromSquare, toSquare) (State turn turnColor board)
+    | movedPiece == Blank     = error ("Move.move: no piece at position " ++ (show fromSquare))
+    | turnColor /= movedColor = error "Move.move: piece does not belong to color on move"
+    | otherwise               = State (turn+1) (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
     where
         movedPiece = board ! fromSquare
         movedColor = colorOf movedPiece

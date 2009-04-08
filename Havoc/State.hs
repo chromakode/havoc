@@ -13,9 +13,9 @@ type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board = Array (Int,Int) Piece
 
-data State = State { turn  :: Int,
-                     color :: Color,
-                     board :: Board }
+data State = State { turn      :: Int,
+                     turnColor :: Color,
+                     board     :: Board }
 
 instance Show Color where
     show White = "W"
@@ -87,16 +87,22 @@ showBoard board =
 isBlank :: Board -> Square -> Bool
 isBlank board square = (board ! square) == Blank
 
+isColor :: Board -> Color -> Square -> Bool
+isColor board color square = (colorOf (board ! square)) == color
+
+isTurnColor :: State -> Square -> Bool
+isTurnColor (State turn turnColor board) square = isColor board turnColor square
+
 pieces :: Board -> [Position]
 pieces board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
 
 instance Show State where
-    show (State turn color board) =
-        show turn ++ " " ++ show color ++ "\n"
+    show (State turn turnColor board) =
+        show turn ++ " " ++ show turnColor ++ "\n"
         ++ showBoard board
         
 instance Read State where
-    readsPrec p s = [(State turn color (readBoard u), "")
+    readsPrec p s = [(State turn turnColor (readBoard u), "")
                         | (turn, t)  <- readsPrec p s
-                        , (color, u) <- readsPrec p t]                      
+                        , (turnColor, u) <- readsPrec p t]                      
 
