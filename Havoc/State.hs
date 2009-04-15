@@ -13,7 +13,7 @@ data Piece = Piece { colorOf   :: Color,
            deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
-type Board = Array (Int,Int) Piece
+type Board = Array Square Piece
 
 data State = State { turn      :: Int,
                      turnColor :: Color,
