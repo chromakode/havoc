@@ -92,10 +92,10 @@ genericMoveGen pieceMoves state@(State turn turnColor board) =
                | position@(square, Piece pieceColor _) <- positions board
                , pieceColor == turnColor ]
               
-move :: Move -> State -> State
-move (fromSquare, toSquare) (State turn turnColor board)
-    | movedPiece == Blank     = error ("Move.move: no piece at position " ++ (show fromSquare))
-    | turnColor /= movedColor = error "Move.move: piece does not belong to color on move"
+genericMove :: Move -> State -> State
+genericMove (fromSquare, toSquare) (State turn turnColor board)
+    | movedPiece == Blank     = error ("Move.genericMove: no piece at position " ++ (show fromSquare))
+    | turnColor /= movedColor = error "Move.genericMove: piece does not belong to color on move"
     | otherwise               = State (turn+1) (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
     where
         movedPiece = board ! fromSquare

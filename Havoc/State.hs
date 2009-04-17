@@ -106,6 +106,14 @@ pieces board = filter (/=Blank) (elems board)
 positions :: Board -> [Position]
 positions board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
 
+endRow :: Color -> Board -> Int
+endRow color board
+    = case color of
+        White -> li
+        Black -> ui
+    where ((li,lj),(ui,uj)) = bounds board
+        
+
 instance Show State where
     show (State turn turnColor board) =
         show turn ++ " " ++ show turnColor ++ "\n"
