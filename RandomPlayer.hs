@@ -15,10 +15,10 @@ randomMove state moves g = (move m state, g')
         (m, g') = randomChoice moves g
 
 nextMove (state, g)
-   = case (gameStatus state) of
-         End result       -> Nothing
-         Continue _ moves -> let (s, g') = randomMove state moves g in
-                             Just (s, (s, g'))
+    = case (gameStatus state) of
+        End result       -> Nothing
+        Continue _ moves -> let (s, g') = randomMove state moves g in
+                              Just (s, (s, g'))
 
 main = do seed <- getStdRandom random
           let g = mkStdGen seed
