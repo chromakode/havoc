@@ -18,6 +18,7 @@ type Board = Array Square Piece
 data State = State { turn      :: Int,
                      turnColor :: Color,
                      board     :: Board }
+           deriving Eq
 
 instance Show Color where
     show White = "W"
@@ -33,6 +34,10 @@ instance Read Color where
 invertColor :: Color -> Color
 invertColor White = Black
 invertColor Black = White
+
+colorName :: Color -> String
+colorName White = "White"
+colorName Black = "Black"
 
 instance Show PieceType where
     show King   = "K"
@@ -110,9 +115,3 @@ instance Read State where
     readsPrec p s = [(State turn turnColor (readBoard u), "")
                         | (turn, t)  <- readsPrec p s
                         , (turnColor, u) <- readsPrec p t]                      
-
-isGameOver :: State -> Bool
-isGameOver state
-    = (/=2) . length
-    . filter ((King==) . pieceType)
-    $ pieces (board state)

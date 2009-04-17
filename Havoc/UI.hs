@@ -1,6 +1,7 @@
 module Havoc.UI where
 
 import Data.Char
+import Havoc.Game
 import Havoc.State
 import Havoc.Move
 
@@ -20,4 +21,8 @@ humanMove pieceMoves moveStr state
     | validMove pieceMoves state m  = move m state
     | otherwise          = error "UI.humanMove: invalid move specified"
     where m = decodeMove moveStr
-        
+
+explainStatus :: Status -> String
+explainStatus (End (Win color))  = (colorName color) ++ " wins."
+explainStatus (End Draw)         = "The game is a draw."
+explainStatus (Continue state _) = (colorName (turnColor state)) ++ " to move."
