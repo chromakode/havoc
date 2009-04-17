@@ -87,8 +87,8 @@ readBoard text = listArray ((0,0),(i-1,j-1)) pieces
 showBoard :: Board -> String
 showBoard board =
     unlines [concat
-                [show (board ! (j,i)) | i <- [lj..uj]]
-            | j <- [li..ui]]
+                [show (board ! (i,j)) | j <- [lj..uj]]
+            | i <- [li..ui]]
     where ((li,lj),(ui,uj)) = bounds board
 
 isBlank :: Board -> Square -> Bool
