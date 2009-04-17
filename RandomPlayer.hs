@@ -22,6 +22,6 @@ nextMove (state, g)
 
 main = do seed <- getStdRandom random
           let g = mkStdGen seed
-          let states = unfoldr nextMove (startState, g)
+          let states = startState : (unfoldr nextMove (startState, g))
           putStr (unlines (map show states))
           putStrLn ((explainStatus . gameStatus . last) states)
