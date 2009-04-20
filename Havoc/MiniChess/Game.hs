@@ -29,7 +29,7 @@ gameStatus state
         isDeadKing = (length kings) == 1
         remainingKingColor = (colorOf . head) kings
 
-        isDraw = (turn state) >= 40
+        isDraw = (turn state) >= 80
                || null moves
         
         moves = moveGen state
