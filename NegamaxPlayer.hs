@@ -8,14 +8,16 @@ import Havoc.Utils
 import Havoc.MiniChess.Move
 import Havoc.MiniChess.Game
 import Havoc.MiniChess.Evaluate
+import Havoc.Negamax
+
+mcNegamaxMoves = negamaxMoves gameStatus evaluate move 2
 
 randomChoice xs g = (xs !! index, g')
     where (index, g') = randomR (0, (length xs)-1) g
 
-minOpponentMove state moves g = randomChoice minStates g
-    where       
-        states = map ((flip move) state) moves
-        minStates = minimumsBy evaluate states
+minOpponentMove state moves g = randomChoice negamaxStates g
+    where
+        negamaxStates = map (\m -> move m state) (mcNegamaxMoves state)
         
 nextMove (state, g)
     = case (gameStatus state) of
