@@ -7,17 +7,17 @@ import Data.Maybe
 
 data Color = White | Black deriving Eq
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
-data Piece = Piece { colorOf   :: Color,
-                     pieceType :: PieceType }
+data Piece = Piece { colorOf   :: Color
+                   , pieceType :: PieceType }
            | Blank
            deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board = Array Square Piece
 
-data State = State { turn      :: Int,
-                     turnColor :: Color,
-                     board     :: Board }
+data State = State { turn      :: Int
+                   , turnColor :: Color
+                   , board     :: Board }
            deriving Eq
 
 instance Show Color where

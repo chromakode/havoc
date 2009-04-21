@@ -14,8 +14,11 @@ decodeCoord (alphaCol:numRow) = (row,column)
 decodeMove :: String -> Move
 decodeMove moveStr = (decodeCoord fromCoord, decodeCoord toCoord)
     where
-        (fromCoord, '-':toCoord) = span (/='-') moveStr
-
+        (fromCoord, toCoord)
+            = case span (/='-') moveStr of
+                (fc, '-':tc) -> (fc, tc)
+                _            -> error "UI.decodeMove: unable to read move"
+        
 humanMove :: PieceMoveGen -> String -> State -> Move
 humanMove pieceMoves moveStr state 
     | validMove pieceMoves state m  = m
