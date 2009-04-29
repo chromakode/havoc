@@ -17,15 +17,16 @@ import Havoc.Move
 import Havoc.State
 import Havoc.Negamax
 import Havoc.Notation
+import Havoc.Player
 import Havoc.UI
 import Havoc.Utils
 import Havoc.MiniChess.Move
 import Havoc.MiniChess.Game
 import Havoc.MiniChess.Evaluate
 
-type Player = State -> IO Move
-
 -- Player definitions
+
+type PlayerDebug = (String -> IO ()) -> Player
 
 randomChoice xs = do
     r <- getStdRandom index
@@ -34,38 +35,47 @@ randomChoice xs = do
 
 mcNegamaxMovesID = negamaxMovesID gameStatus evaluate move 2
 
-mcNegamaxMove :: Player
-mcNegamaxMove state = do
-    moves <- mcNegamaxMovesID state
-    randomChoice moves
+mcNegamaxMove :: PlayerDebug
+mcNegamaxMove debugLn state = do
+    putStrLn "Negamax moving..."
+    (depth, moves) <- mcNegamaxMovesID state
+    debugLn $ "Choosing from moves: " ++ (intercalate ", " (map showMove moves))
+    m <- randomChoice moves
+    return $ PlayerResult (Just depth) m
                          
-mcHumanMove :: Player
-mcHumanMove state = do 
+mcHumanMove :: PlayerDebug
+mcHumanMove debugLn state = do 
     line <- readline "Your move: "
     case line of
       Nothing   -> do putStrLn "quit."; exitWith ExitSuccess
-      Just text -> catch (return $! humanMove miniChessMoves text state)
+      Just text -> catch (return $! PlayerResult Nothing $! humanMove miniChessMoves text state)
                          (\e -> do putStrLn (show e)
-                                   mcHumanMove state)
+                                   mcHumanMove debugLn state)
 
 players = [("human",   mcHumanMove)
           ,("negamax", mcNegamaxMove)]
           
 --- Game loop
 
-play :: Player -> Player -> (String -> IO()) -> State -> IO State
-play whitePlayer blackPlayer log state
+play :: PlayerDebug -> PlayerDebug -> (String -> IO()) -> Bool -> State -> IO State
+play whitePlayer blackPlayer logLn debug state
     = case (gameStatus state) of
         status@(End _)       -> do gameOver state status; return state
         Continue state moves -> do putStrLn (show state)
-                                   m <- playerMove turnColor
-                                   log $ showMove m
+                                   Timed dt (PlayerResult depth m) <- timedPlayer (playerMove turnColor) state
+                                   debugLn $ "Player returned move" ++ (maybe "" ((" of depth "++) . show) depth) ++ " after " ++ (show dt)
+                                   logLn $ showMove m
                                    let newstate = move m state
-                                   play whitePlayer blackPlayer log newstate
+                                   play whitePlayer blackPlayer logLn debug newstate
     where
-        playerMove color = case (turnColor state) of 
-                             White -> whitePlayer state
-                             Black -> blackPlayer state
+        playerMove color
+            = case (turnColor state) of 
+                White -> whitePlayer debugLn
+                Black -> blackPlayer debugLn
+                
+        debugLn text
+            | debug == True  = do putStr "[debug] "; putStrLn text
+            | otherwise      = return ()
                                
 gameOver state status = do 
     putStrLn (show state)
@@ -76,12 +86,14 @@ gameOver state status = do
 data Options = Options { help        :: Bool
                        , list        :: Bool
                        , logName     :: Maybe String
-                       , whitePlayer :: Player
-                       , blackPlayer :: Player }
+                       , debug       :: Bool
+                       , whitePlayer :: PlayerDebug
+                       , blackPlayer :: PlayerDebug }
 
 defaultOptions = Options { help        = False
                          , list        = False
                          , logName     = Nothing
+                         , debug       = False
                          , whitePlayer = mcHumanMove
                          , blackPlayer = mcNegamaxMove }
 
@@ -91,6 +103,7 @@ options =
     , Option ['b'] ["black"]   (ReqArg (readPlayer Black) "PLAYER")     "Black player type (default: negamax)"
     , Option ['l'] ["log"]     (OptArg ((\name opts -> opts { logName = Just name })
                                        . fromMaybe "game") "FILE")      "Log file name"
+    , Option ['d'] ["debug"]   (NoArg (\opts -> opts { debug = True })) "Enable debugging output"
     , Option []    ["list"]    (NoArg (\opts -> opts { list = True }))  "List player types"
     , Option ['h'] ["help"]    (NoArg (\opts -> opts { help = True }))  "This help"
     ]
@@ -100,6 +113,7 @@ showHelp = putStrLn (usageInfo header options)
 
 showPlayers = putStrLn $ "Available player types: " ++ (intercalate ", " (map fst players))
 
+readPlayer :: Color -> String -> Options -> Options
 readPlayer color text
     = case lookup text players of
         Just player -> case color of
@@ -158,5 +172,5 @@ start opts
                      Nothing   -> do startPlay noLog; return ()
                      Just name -> logGame name startPlay
     where
-        startPlay log = play (whitePlayer opts) (blackPlayer opts) log startState
+        startPlay log = play (whitePlayer opts) (blackPlayer opts) log (debug opts) startState
         noLog = (\_ -> return ())
