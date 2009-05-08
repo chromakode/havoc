@@ -1,28 +1,38 @@
 module Havoc.Notation where
 
+import Data.Array
 import Data.Char
 import Havoc.State
 import Havoc.Move
 
-readCoord :: String -> Square
-readCoord (alphaCol:numRow) = (row,column)
+readCoord :: BoardBounds -> String -> Square
+readCoord ((li,lj),(ui,uj)) (alphaCol:numRow)
+    | row < li    || row > ui    = error "Notation.readCoord: row out of bounds"
+    | column < lj || column > uj = error "Notation.readCoord: column out of bounds"
+    | otherwise                  = (row,column)
     where
-        row    = (read numRow) - 1
+        row    = ui - (read numRow) + 1
         column = ord alphaCol - ord 'a'
         
-readMove :: String -> Move
-readMove moveStr = (readCoord fromCoord, readCoord toCoord)
+readMove :: BoardBounds -> String -> Move
+readMove bbounds moveStr = (readCoord bbounds fromCoord, readCoord bbounds toCoord)
     where
         (fromCoord, toCoord)
             = case span (/='-') moveStr of
                 (fc, '-':tc) -> (fc, tc)
-                _            -> error "UI.decodeMove: unable to read move"
+                _            -> error "Notation.decodeMove: unable to read move"
 
-showCoord :: Square -> String
-showCoord (i,j) = column : row
+readMove' :: State -> String -> Move
+readMove' state = readMove ((bounds . board) state)
+
+showCoord :: BoardBounds -> Square -> String
+showCoord ((li,lj),(ui,uj)) (i,j) = column : row
     where
-        row    = show $ i + 1
-        column = chr $ i + (ord 'a')
+        row    = show $ ui - i + 1
+        column = chr $ j + (ord 'a')
 
-showMove :: Move -> String
-showMove (fromSquare, toSquare) = (showCoord fromSquare) ++ "-" ++ (showCoord toSquare)
+showMove :: BoardBounds -> Move -> String
+showMove bbounds (fromSquare, toSquare) = (showCoord bbounds fromSquare) ++ "-" ++ (showCoord bbounds toSquare)
+
+showMove' :: State -> Move -> String
+showMove' state = showMove ((bounds . board) state)

@@ -13,6 +13,7 @@ miniChessMoves state (square, Piece _     Bishop) = (dirMoves Move [North, East,
 miniChessMoves state (square, Piece _     Knight) = knightMoves state square
 miniChessMoves state (square, Piece White Pawn)   = (dirMoves Move [North] state square) `union` (dirMoves Capture [Northwest, Northeast] state square)
 miniChessMoves state (square, Piece Black Pawn)   = (dirMoves Move [South] state square) `union` (dirMoves Capture [Southwest, Southeast] state square)
+miniChessMoves state (square, Blank) = error "Move.miniChessMoves: moves for blank square requested"
 
 moveGen :: State -> [Move]
 moveGen = genericMoveGen miniChessMoves 

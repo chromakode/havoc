@@ -14,6 +14,7 @@ data Piece = Piece { colorOf   :: Color
 type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board = Array Square Piece
+type BoardBounds = (Square, Square)
 
 data State = State { turn      :: Int
                    , turnColor :: Color
