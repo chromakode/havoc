@@ -12,6 +12,6 @@ humanMove pieceMoves moveStr state
     where m = readMove moveStr
 
 explainStatus :: Status -> String
-explainStatus (End (Win color))  = (colorName color) ++ " wins."
-explainStatus (End Draw)         = "The game is a draw."
-explainStatus (Continue state _) = (colorName (turnColor state)) ++ " to move."
+explainStatus (End _ (Win color)) = (colorName color) ++ " wins."
+explainStatus (End _ Draw)        = "The game is a draw."
+explainStatus (Continue state _)  = (colorName (turnColor state)) ++ " to move."

@@ -19,8 +19,8 @@ startState = State 0 White startBoard
 
 gameStatus :: State -> Status
 gameStatus state
-    | isDeadKing = End (Win remainingKingColor)
-    | isDraw     = End Draw
+    | isDeadKing = End state (Win remainingKingColor)
+    | isDraw     = End state Draw
     | otherwise  = Continue state moves
     where
         kings = filter ((King==) . pieceType)

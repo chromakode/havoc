@@ -10,28 +10,29 @@ import Havoc.Move
 import Havoc.State
 import Havoc.Utils
 
-negamax :: (State -> Status) -> (State -> Double) -> (Move -> State -> State) -> Int -> State -> Double
+negamax :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> Int -> State -> Double
 negamax gameStatus evaluate move depth state
     | depth == 0  = heuristicValue
-    | otherwise   = case gameStatus state of
-                      End _            -> heuristicValue
+    | otherwise   = case status of
+                      End _ _          -> heuristicValue
                       Continue _ moves -> negamaxValue moves
     where
-        heuristicValue = evaluate state
+        status = gameStatus state
+        heuristicValue = evaluate status
         
         recurse = negamax gameStatus evaluate move
         negamaxValue moves = maximum [-(recurse (depth-1) (move m state))
                                      | m <- moves]
 
-negamaxMoves :: (State -> Status) -> (State -> Double) -> (Move -> State -> State) -> Int -> State -> [Move]
+negamaxMoves :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> Int -> State -> [Move]
 negamaxMoves gameStatus evaluate move depth state
     = case gameStatus state of
-        End _            -> []
+        End _ _          -> []
         Continue _ moves -> minimumsBy moveValue moves
     where
         moveValue m = negamax gameStatus evaluate move depth (move m state)
         
-negamaxMovesID :: (State -> Status) -> (State -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, [Move])
+negamaxMovesID :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, [Move])
 negamaxMovesID gameStatus evaluate move seconds state
     = do startTime <- getCurrentTime
          run startTime (0, [])

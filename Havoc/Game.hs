@@ -7,6 +7,6 @@ data Result = Win Color
             | Draw
             deriving (Show, Eq)
 
-data Status = End Result
+data Status = End State Result
             | Continue State [Move]
             deriving (Show, Eq)

@@ -4,12 +4,12 @@ import Havoc.State
 import Havoc.Game
 import Havoc.MiniChess.Game
 
-evaluate :: State -> Double
-evaluate state@(State turn turnColor board)
-    = case (gameStatus state) of
-        End (Win color) -> if color == turnColor then 1 else -1
-        End Draw        -> 0.5
-        Continue _ _    -> naiveMaterialScore state
+evaluate :: Status -> Double
+evaluate status
+    = case status of
+        End state (Win color) -> if color == (turnColor state) then 1 else -1
+        End _ Draw            -> 0.5
+        Continue state _      -> naiveMaterialScore state
 
 naiveMaterialScore :: State -> Double
 naiveMaterialScore (State turn turnColor board)

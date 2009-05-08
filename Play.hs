@@ -60,7 +60,7 @@ players = [("human",   mcHumanMove)
 play :: PlayerDebug -> PlayerDebug -> (String -> IO()) -> Bool -> State -> IO State
 play whitePlayer blackPlayer logLn debug state
     = case (gameStatus state) of
-        status@(End _)       -> do gameOver state status; return state
+        status@(End _ _)     -> do gameOver state status; return state
         Continue state moves -> do putStrLn (show state)
                                    Timed dt (PlayerResult depth m) <- timedPlayer (playerMove turnColor) state
                                    debugLn $ "Player returned move" ++ (maybe "" ((" of depth "++) . show) depth) ++ " after " ++ (show dt)
