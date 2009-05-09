@@ -4,8 +4,8 @@ import Data.Time.Clock
 import Havoc.Move
 import Havoc.State
 
-data PlayerResult = PlayerResult { depth      :: Maybe Int
-                                 , playerMove :: Move      }      
+data PlayerResult = PlayerResult { searchStats :: Maybe (Int,Int)
+                                 , playerMove  :: Move            }
 
 type Player = State -> IO PlayerResult
 

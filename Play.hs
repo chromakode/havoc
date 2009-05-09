@@ -38,10 +38,10 @@ mcNegamaxMovesID = negamaxMovesID gameStatus evaluate move 2
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
     putStrLn "Negamax moving..."
-    (depth, moves) <- mcNegamaxMovesID state
+    (depth, nodes, moves) <- mcNegamaxMovesID state
     debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
     m <- randomChoice moves
-    return $ PlayerResult (Just depth) m
+    return $ PlayerResult (Just (depth, nodes)) m
                          
 mcHumanMove :: PlayerDebug
 mcHumanMove debugLn state = do 
@@ -62,8 +62,13 @@ play whitePlayer blackPlayer logLn debug state
     = case (gameStatus state) of
         status@(End _ _)     -> do gameOver state status; return state
         Continue state moves -> do putStrLn (show state)
-                                   Timed dt (PlayerResult depth m) <- timedPlayer (playerMove turnColor) state
-                                   debugLn $ "Player returned move" ++ (maybe "" ((" of depth "++) . show) depth) ++ " after " ++ (show dt)
+                                   Timed dt (PlayerResult stats m) <- timedPlayer (playerMove turnColor) state
+                                   debugLn $ "Player returned move"
+                                           ++ (maybe "" (\(depth,nodes)
+                                                          -> (" of depth " ++ (show depth)
+                                                           ++ " (" ++ (show nodes) ++ " nodes)"))
+                                              stats)
+                                           ++ " after " ++ (show dt)
                                    logLn $ showMove' state m
                                    let newstate = move m state
                                    play whitePlayer blackPlayer logLn debug newstate

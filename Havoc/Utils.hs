@@ -9,3 +9,12 @@ minimumsBy p as
     where 
         abs = map (\a -> (a, p a)) as
         minb = (minimum . map snd) abs
+        
+minimumsPair :: (Ord b) => [(b,a)] -> [a]
+minimumsPair [] = []
+minimumsPair as
+    = map snd
+    . filter ((==minb) . fst)
+    $ as
+    where
+        minb = (minimum . map fst) as
