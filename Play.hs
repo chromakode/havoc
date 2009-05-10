@@ -15,14 +15,14 @@ import System.Locale
 import Havoc.Game
 import Havoc.Move
 import Havoc.State
-import Havoc.Negamax
 import Havoc.Notation
 import Havoc.Player
+import Havoc.Player.Negamax
 import Havoc.UI
 import Havoc.Utils
-import Havoc.MiniChess.Move
-import Havoc.MiniChess.Game
-import Havoc.MiniChess.Evaluate
+import Havoc.Game.MiniChess.Move
+import Havoc.Game.MiniChess.Game
+import Havoc.Game.MiniChess.Evaluate
 
 -- Player definitions
 

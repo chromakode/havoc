@@ -1,8 +1,8 @@
-module Havoc.MiniChess.Game where
+module Havoc.Game.MiniChess.Game where
 
 import Havoc.State
 import Havoc.Game
-import Havoc.MiniChess.Move
+import Havoc.Game.MiniChess.Move
 
 startBoard :: Board
 startBoard = readBoard startBoardText

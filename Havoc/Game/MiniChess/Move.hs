@@ -1,4 +1,4 @@
-module Havoc.MiniChess.Move where
+module Havoc.Game.MiniChess.Move where
 
 import Data.List (union)
 import Data.Array ((!), (//))

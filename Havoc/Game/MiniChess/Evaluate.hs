@@ -1,8 +1,8 @@
-module Havoc.MiniChess.Evaluate where
+module Havoc.Game.MiniChess.Evaluate where
 
 import Havoc.State
 import Havoc.Game
-import Havoc.MiniChess.Game
+import Havoc.Game.MiniChess.Game
 
 evaluate :: Status -> Double
 evaluate status

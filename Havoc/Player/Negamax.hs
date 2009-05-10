@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Havoc.Negamax where
+module Havoc.Player.Negamax where
 
 import Data.List
 import Data.Maybe
