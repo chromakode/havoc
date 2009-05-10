@@ -17,6 +17,7 @@ import Havoc.Move
 import Havoc.State
 import Havoc.Notation
 import Havoc.Player
+import Havoc.Player.IterativeDeepening
 import Havoc.Player.Negamax
 import Havoc.UI
 import Havoc.Utils
@@ -33,7 +34,7 @@ randomChoice xs = do
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
-mcNegamaxMovesID = negamaxMovesID gameStatus evaluate move 2
+mcNegamaxMovesID = iterativelyDeepen (negamaxMoves gameStatus evaluate move) 2
 
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
