@@ -35,11 +35,9 @@ randomChoice xs = do
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
-mcNegamaxMovesID = iterativelyDeepen (negamaxMoves gameStatus evaluate move) 2
-
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
-    (depth, nodes, moves) <- mcNegamaxMovesID state
+    (depth, nodes, moves) <- negamaxMovesID gameStatus evaluate move 2 state
     debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
     m <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m

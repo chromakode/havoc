@@ -1,10 +1,13 @@
 module Havoc.Player.Negamax where
 
+import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Ord
+import Data.Time
 import Havoc.Game
 import Havoc.Move
+import Havoc.Player.IterativeDeepening
 import Havoc.State
 import Havoc.Utils
 
@@ -37,4 +40,8 @@ negamaxMoves gameStatus evaluate move state depth
                       where (nodes, movevs) = unzip [(\(n,v) -> (n,(v,m))) $ doNegamax (move m state) depth
                                                     | m <- moves]
                             doNegamax = negamax gameStatus evaluate move
+
+
+negamaxMovesID :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [Move])
+negamaxMovesID gameStatus evaluate move seconds state = iterativelyDeepen (\s d -> return (negamaxMoves gameStatus evaluate move s d)) seconds state
 

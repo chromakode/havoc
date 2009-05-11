@@ -8,14 +8,15 @@ import Havoc.Game
 import Havoc.Move
 import Havoc.State
 
-iterativelyDeepenC :: (State -> Int -> a -> (Int, [Move], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [Move])
+iterativelyDeepenC :: (State -> Int -> a -> IO (Int, [Move], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [Move])
 iterativelyDeepenC doSearch startData seconds state
     = do startTime <- getCurrentTime
          run startTime (1, 0, []) startData
          
     where
-        runDepth depth continueData = return (nodes, moves, continueData')
-                 where !(!nodes, !moves, !continueData') = doSearch state depth continueData 
+        runDepth depth continueData = do
+            !(!nodes, !moves, !continueData') <- doSearch state depth continueData
+            return (nodes, moves, continueData')
         
         run startTime out@(curDepth, nodes, lastMoves) continueData
             = do curTime <- getCurrentTime
@@ -29,10 +30,10 @@ iterativelyDeepenC doSearch startData seconds state
                                Nothing                            -> return out
                                Just (nodes', moves, continueData) -> run startTime ((curDepth+1), nodes+nodes', moves) continueData
 
-iterativelyDeepen :: (State -> Int -> (Int, [Move])) -> NominalDiffTime -> State -> IO (Int, Int, [Move])
+iterativelyDeepen :: (State -> Int -> IO (Int, [Move])) -> NominalDiffTime -> State -> IO (Int, Int, [Move])
 iterativelyDeepen doSearch
     = iterativelyDeepenC doSearchC ()
     where
-        doSearchC state depth _
-            = (nodes, moves, ())
-            where (nodes, moves) = doSearch state depth
+        doSearchC state depth _ = do
+            (nodes, moves) <- doSearch state depth
+            return (nodes, moves, ())
