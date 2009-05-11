@@ -53,12 +53,16 @@ mcHumanMove debugLn state = do
                          (\e -> do putStrLn (show e)
                                    mcHumanMove debugLn state)
 
-players = [("human",   mcHumanMove)
-          ,("negamax", mcNegamaxMove)]
-          
+data PlayerType = Human | Negamax
+    deriving (Show, Read, Enum)
+
+playerFor :: PlayerType -> PlayerDebug
+playerFor Human   = mcHumanMove
+playerFor Negamax = mcNegamaxMove
+
 --- Game loop
 
-play :: PlayerDebug -> PlayerDebug -> (String -> IO()) -> Bool -> State -> IO State
+play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> State -> IO State
 play whitePlayer blackPlayer logLn debug state
     = case (gameStatus state) of
         status@(End _ _)     -> do gameOver state status; return state
@@ -76,8 +80,8 @@ play whitePlayer blackPlayer logLn debug state
     where
         playerMove color
             = case (turnColor state) of 
-                White -> whitePlayer debugLn
-                Black -> blackPlayer debugLn
+                White -> (playerFor whitePlayer) debugLn
+                Black -> (playerFor blackPlayer) debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
@@ -93,20 +97,20 @@ data Options = Options { help        :: Bool
                        , list        :: Bool
                        , logName     :: Maybe String
                        , debug       :: Bool
-                       , whitePlayer :: PlayerDebug
-                       , blackPlayer :: PlayerDebug }
+                       , whitePlayer :: PlayerType
+                       , blackPlayer :: PlayerType   }
 
 defaultOptions = Options { help        = False
                          , list        = False
                          , logName     = Nothing
                          , debug       = False
-                         , whitePlayer = mcHumanMove
-                         , blackPlayer = mcNegamaxMove }
+                         , whitePlayer = Human
+                         , blackPlayer = Negamax }
 
 options :: [OptDescr (Options -> Options)]
 options =
-    [ Option ['w'] ["white"]   (ReqArg (readPlayer White) "PLAYER")     "White player type (default: human)"
-    , Option ['b'] ["black"]   (ReqArg (readPlayer Black) "PLAYER")     "Black player type (default: negamax)"
+    [ Option ['w'] ["white"]   (ReqArg (readPlayer White) "PLAYER")     ("White player type (default: " ++ (show . whitePlayer) defaultOptions  ++ ")")
+    , Option ['b'] ["black"]   (ReqArg (readPlayer Black) "PLAYER")     ("Black player type (default: " ++ (show . blackPlayer) defaultOptions  ++ ")")
     , Option ['l'] ["log"]     (OptArg ((\name opts -> opts { logName = Just name })
                                        . fromMaybe "game") "FILE")      "Log file name"
     , Option ['d'] ["debug"]   (NoArg (\opts -> opts { debug = True })) "Enable debugging output"
@@ -117,15 +121,15 @@ header = "Usage: play"
 
 showHelp = putStrLn (usageInfo header options)
 
-showPlayers = putStrLn $ "Available player types: " ++ (intercalate ", " (map fst players))
+showPlayers = putStrLn $ "Available player types: " ++ (intercalate ", " (map show [Human ..]))
 
 readPlayer :: Color -> String -> Options -> Options
 readPlayer color text
-    = case lookup text players of
-        Just player -> case color of
-                         White -> (\opts -> opts { whitePlayer = player })
-                         Black -> (\opts -> opts { blackPlayer = player })
-        Nothing     -> error $ "Invalid player \"" ++ text ++ "\"specified" 
+    = case (listToMaybe . reads) text of
+        Just (player,_) -> case color of
+                             White -> (\opts -> opts { whitePlayer = player })
+                             Black -> (\opts -> opts { blackPlayer = player })
+        Nothing         -> error $ "Invalid player \"" ++ text ++ "\"specified"
         
 getLogFileName logName
     = do t <- getZonedTime
