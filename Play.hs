@@ -38,7 +38,6 @@ mcNegamaxMovesID = iterativelyDeepen (negamaxMoves gameStatus evaluate move) 2
 
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
-    putStrLn "Negamax moving..."
     (depth, nodes, moves) <- mcNegamaxMovesID state
     debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
     m <- randomChoice moves
@@ -63,10 +62,11 @@ playerFor Negamax = mcNegamaxMove
 --- Game loop
 
 play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> State -> IO State
-play whitePlayer blackPlayer logLn debug state
+play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
     = case (gameStatus state) of
         status@(End _ _)     -> do gameOver state status; return state
         Continue state moves -> do putStrLn (show state)
+                                   putStrLn $ (show . playerOfColor) turnColor ++ " moving..."
                                    Timed dt (PlayerResult stats m) <- timedPlayer (playerMove turnColor) state
                                    debugLn $ "Player returned move"
                                            ++ (maybe "" (\(depth,nodes)
@@ -78,10 +78,12 @@ play whitePlayer blackPlayer logLn debug state
                                    let newstate = move m state
                                    play whitePlayer blackPlayer logLn debug newstate
     where
-        playerMove color
-            = case (turnColor state) of 
-                White -> (playerFor whitePlayer) debugLn
-                Black -> (playerFor blackPlayer) debugLn
+        playerOfColor color
+            = case color of
+                White -> whitePlayer
+                Black -> blackPlayer
+                
+        playerMove color = playerFor (playerOfColor color) debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
