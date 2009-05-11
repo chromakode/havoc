@@ -33,7 +33,7 @@ negamaxPruned gameStatus evaluate move status depth ourBest theirBest = do
         runPrune nodes (s:statuses) localBest ourBest = do
             (rnodes, moveValueNeg) <- recurse s (depth-1) (-theirBest) (-ourBest)
             
-            let nodes' = nodes + rnodes
+            let nodes'     = nodes + rnodes
                 localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
             
@@ -56,7 +56,7 @@ negamaxPrunedMove gameStatus evaluate move state depth = do
         runTopPrune nodes []               localBest ourBest bestMove = return (nodes, bestMove)
         runTopPrune nodes ((m,s):statuses) localBest ourBest bestMove = do
             (snodes, moveValueNeg) <- negamaxPruned gameStatus evaluate move s (depth-1) (-1) (-ourBest)
-            let nodes' = nodes + snodes
+            let nodes'     = nodes + snodes
                 localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
                 

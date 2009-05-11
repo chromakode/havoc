@@ -7,10 +7,9 @@ import Havoc.Game.MiniChess.Game
 evaluate :: Status -> Double
 evaluate status
     = case status of
-        End state (Win color) -> if color == (turnColor state) then 10 else -10
-        End _ Draw            -> 0.5
-        Continue state _      -> (sum . map ($status)) [ naiveMaterialScore
-                                                       , coverageScore      ]
+        End state (Win color) -> if color == (turnColor state) then 1 else -1
+        End _ Draw            -> 0.8
+        Continue state _      -> (sum . map ($status)) [ naiveMaterialScore ]
 
 naiveMaterialScore :: Status -> Double
 naiveMaterialScore (Continue (State turn turnColor board) _)
