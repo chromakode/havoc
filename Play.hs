@@ -19,6 +19,7 @@ import Havoc.Notation
 import Havoc.Player
 import Havoc.Player.IterativeDeepening
 import Havoc.Player.Negamax
+import Havoc.Player.NegamaxPruned
 import Havoc.UI
 import Havoc.Utils
 import Havoc.Game.MiniChess.Move
@@ -42,6 +43,11 @@ mcNegamaxMove debugLn state = do
     debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
     m <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m
+    
+mcNegamaxPrunedMove :: PlayerDebug
+mcNegamaxPrunedMove debugLn state = do
+    (depth, nodes, moves) <- negamaxPrunedMoveID gameStatus evaluate move 2 state
+    return $ PlayerResult (Just (depth, nodes)) (head moves)
                          
 mcHumanMove :: PlayerDebug
 mcHumanMove debugLn state = do 
@@ -52,12 +58,13 @@ mcHumanMove debugLn state = do
                          (\e -> do putStrLn (show e)
                                    mcHumanMove debugLn state)
 
-data PlayerType = Human | Negamax
+data PlayerType = Human | Negamax | NegamaxPruned
     deriving (Show, Read, Enum)
 
 playerFor :: PlayerType -> PlayerDebug
-playerFor Human   = mcHumanMove
-playerFor Negamax = mcNegamaxMove
+playerFor Human         = mcHumanMove
+playerFor Negamax       = mcNegamaxMove
+playerFor NegamaxPruned = mcNegamaxPrunedMove
 
 --- Game loop
 
