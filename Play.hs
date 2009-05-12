@@ -1,6 +1,7 @@
 import Prelude hiding (catch)
 
 import Control.Exception hiding (evaluate)
+import Control.Monad
 import Data.List
 import Data.Maybe
 import Data.Time.LocalTime
@@ -55,12 +56,21 @@ mcHumanMove debugLn state = do
       Just text -> catch (return $! PlayerResult Nothing $! humanMove miniChessMoves text state)
                          (\e -> do putStrLn (show e)
                                    mcHumanMove debugLn state)
+                        
+mcIOMove :: PlayerDebug
+mcIOMove debugLn state = do
+    putStrLn $ "? " ++ colorName (turnColor state) ++ " to move."
+    hFlush stdout
+    line <- getLine
+    let move = fromMaybe line (stripPrefix "! " line)
+    return $! PlayerResult Nothing $! humanMove miniChessMoves move state
 
-data PlayerType = Human | Negamax | NegamaxPruned
-    deriving (Show, Read, Enum)
+data PlayerType = Human | IO | Negamax | NegamaxPruned
+    deriving (Show, Read, Eq, Enum)
 
 playerFor :: PlayerType -> PlayerDebug
 playerFor Human         = mcHumanMove
+playerFor IO            = mcIOMove
 playerFor Negamax       = mcNegamaxMove
 playerFor NegamaxPruned = mcNegamaxPrunedMove
 
@@ -70,9 +80,14 @@ play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> State -> IO Stat
 play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
     = case (gameStatus state) of
         status@(End _ _)     -> do gameOver state status; return state
-        Continue state moves -> do putStrLn (show state)
-                                   putStrLn $ (show . playerOfColor) turnColor ++ " moving..."
-                                   Timed dt (PlayerResult stats m) <- timedPlayer (playerMove turnColor) state
+        Continue state moves -> do let curPlayer = playerOfColor turnColor
+                                       oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
+                                   putStrLn (show state)
+                                   when oppIsIO $ do putStrLn "Waiting for ready line..."; getLine; return ()
+                                   putStrLn $ show curPlayer ++ " moving..."
+                                   
+                                   Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
+                                   
                                    debugLn $ "Player returned move"
                                            ++ (maybe "" (\(depth,nodes)
                                                           -> (" of depth " ++ (show depth)
@@ -80,6 +95,9 @@ play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
                                               stats)
                                            ++ " after " ++ (show dt)
                                    logLn $ showMove' state m
+                                   when oppIsIO $ putStrLn $ "! " ++ showMove' state m
+                                   putStrLn ""
+                                   
                                    let newstate = move m state
                                    play whitePlayer blackPlayer logLn debug newstate
     where
@@ -88,7 +106,7 @@ play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
                 White -> whitePlayer
                 Black -> blackPlayer
                 
-        playerMove color = playerFor (playerOfColor color) debugLn
+        playerMove player = playerFor player debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
