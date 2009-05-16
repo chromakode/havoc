@@ -119,8 +119,8 @@ play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
             | otherwise      = return ()
                                
 gameOver state status = do 
-    putStrLn (show state)
-    putStrLn (explainStatus status)
+    putStrLn $ show state
+    putStrLn $ explainStatus status
 
 -- Program and command line argument stuff
 
