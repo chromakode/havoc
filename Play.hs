@@ -36,16 +36,21 @@ randomChoice xs = do
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
+mcRandomMove :: PlayerDebug
+mcRandomMove debugLn state = do
+    m <- randomChoice (moveGen state)
+    return $ PlayerResult (Just (1, 1)) m
+
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
-    (depth, nodes, moves) <- negamaxMovesID gameStatus evaluate move 2 state
+    (depth, nodes, moves) <- negamaxMovesID gameStatus evaluate move 7 state
     debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
     m <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m
     
 mcNegamaxPrunedMove :: PlayerDebug
 mcNegamaxPrunedMove debugLn state = do
-    (depth, nodes, moves) <- negamaxPrunedMoveID gameStatus evaluate move 2 state
+    (depth, nodes, moves) <- negamaxPrunedMoveID gameStatus evaluate move 7 state
     return $ PlayerResult (Just (depth, nodes)) (head moves)
                          
 mcHumanMove :: PlayerDebug
@@ -65,12 +70,13 @@ mcIOMove debugLn state = do
     let move = fromMaybe line (stripPrefix "! " line)
     return $! PlayerResult Nothing $! humanMove miniChessMoves move state
 
-data PlayerType = Human | IO | Negamax | NegamaxPruned
+data PlayerType = Human | IO | Random | Negamax | NegamaxPruned
     deriving (Show, Read, Eq, Enum)
 
 playerFor :: PlayerType -> PlayerDebug
 playerFor Human         = mcHumanMove
 playerFor IO            = mcIOMove
+playerFor Random        = mcRandomMove
 playerFor Negamax       = mcNegamaxMove
 playerFor NegamaxPruned = mcNegamaxPrunedMove
 
