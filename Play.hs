@@ -64,7 +64,6 @@ mcHumanMove debugLn state = do
                         
 mcIOMove :: PlayerDebug
 mcIOMove debugLn state = do
-    putStrLn $ "? " ++ colorName (turnColor state) ++ " to move."
     hFlush stdout
     line <- getLine
     let move = fromMaybe line (stripPrefix "! " line)
@@ -89,7 +88,6 @@ play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
         Continue state moves -> do let curPlayer = playerOfColor turnColor
                                        oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
                                    putStrLn (show state)
-                                   when oppIsIO $ do putStrLn "Waiting for ready line..."; getLine; return ()
                                    putStrLn $ show curPlayer ++ " moving..."
                                    
                                    Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
