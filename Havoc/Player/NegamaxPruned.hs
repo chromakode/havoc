@@ -44,7 +44,7 @@ negamaxPruned gameStatus evaluate move status depth ourBest theirBest = do
                 -- This is a reasonable move. Keep searching.
                 else runPrune nodes' statuses localBest' ourBest'
                 
-negamaxPrunedMove :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> State -> Int -> IO (Int, [Move])
+negamaxPrunedMove :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> State -> Int -> IO (Int, [(Double, Move)])
 negamaxPrunedMove gameStatus evaluate move state depth = do
     case negamaxChildNodes status depth of
         Nothing    -> return (1, [])
@@ -61,9 +61,9 @@ negamaxPrunedMove gameStatus evaluate move state depth = do
                 ourBest'   = max ourBest localBest'
                 
             if (localBest' > localBest)
-                then runTopPrune nodes' statuses localBest' ourBest' [m]
+                then runTopPrune nodes' statuses localBest' ourBest' [(localBest', m)]
                 else runTopPrune nodes' statuses localBest' ourBest' bestMove
 
-negamaxPrunedMoveID :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [Move])
-negamaxPrunedMoveID gameStatus evaluate move seconds state = iterativelyDeepen (negamaxPrunedMove gameStatus evaluate move) seconds state
+negamaxPrunedMoveID :: (String -> IO ()) -> (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Double, Move)])
+negamaxPrunedMoveID debugLn gameStatus evaluate move seconds state = iterativelyDeepen debugLn (negamaxPrunedMove gameStatus evaluate move) seconds state
 

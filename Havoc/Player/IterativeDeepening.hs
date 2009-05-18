@@ -6,10 +6,12 @@ import Data.Time.Clock
 import System.Timeout
 import Havoc.Game
 import Havoc.Move
+import Havoc.Notation
+import Havoc.Player
 import Havoc.State
 
-iterativelyDeepenC :: (State -> Int -> a -> IO (Int, [Move], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [Move])
-iterativelyDeepenC doSearch startData seconds state
+iterativelyDeepenC :: (String -> IO ()) -> (State -> Int -> a -> IO (Int, [(Double, Move)], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [(Double, Move)])
+iterativelyDeepenC debugLn doSearch startData seconds state
     = do startTime <- getCurrentTime
          run startTime (1, 0, []) startData
          
@@ -28,11 +30,13 @@ iterativelyDeepenC doSearch startData seconds state
                      else do result <- timeout remainMicroseconds (runDepth curDepth continueData)
                              case result of
                                Nothing                            -> return out
-                               Just (nodes', moves, continueData) -> run startTime ((curDepth+1), nodes+nodes', moves) continueData
+                               Just (nodes', moves, continueData) -> do
+                                   debugLn $ "Depth " ++ show curDepth ++ ": " ++ showScoredMoves state moves
+                                   run startTime ((curDepth+1), nodes+nodes', moves) continueData
 
-iterativelyDeepen :: (State -> Int -> IO (Int, [Move])) -> NominalDiffTime -> State -> IO (Int, Int, [Move])
-iterativelyDeepen doSearch
-    = iterativelyDeepenC doSearchC ()
+iterativelyDeepen :: (String -> IO ()) -> (State -> Int -> IO (Int, [(Double, Move)])) -> NominalDiffTime -> State -> IO (Int, Int, [(Double, Move)])
+iterativelyDeepen debugLn doSearch
+    = iterativelyDeepenC debugLn doSearchC ()
     where
         doSearchC state depth _ = do
             (nodes, moves) <- doSearch state depth

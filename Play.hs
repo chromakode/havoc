@@ -29,8 +29,6 @@ import Havoc.Game.MiniChess.Evaluate
 
 -- Player definitions
 
-type PlayerDebug = (String -> IO ()) -> Player
-
 randomChoice xs = do
     r <- getStdRandom index
     return (xs !! r)
@@ -43,15 +41,15 @@ mcRandomMove debugLn state = do
 
 mcNegamaxMove :: PlayerDebug
 mcNegamaxMove debugLn state = do
-    (depth, nodes, moves) <- negamaxMovesID gameStatus evaluate move 7 state
-    debugLn $ "Choosing from moves: " ++ (intercalate ", " (map (showMove' state) moves))
-    m <- randomChoice moves
+    (depth, nodes, moves) <- negamaxMovesID debugLn gameStatus evaluate move 7 state
+    debugLn $ "Choosing from moves: " ++ showScoredMoves state moves
+    (s, m) <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m
     
 mcNegamaxPrunedMove :: PlayerDebug
 mcNegamaxPrunedMove debugLn state = do
-    (depth, nodes, moves) <- negamaxPrunedMoveID gameStatus evaluate move 7 state
-    return $ PlayerResult (Just (depth, nodes)) (head moves)
+    (depth, nodes, moves) <- negamaxPrunedMoveID debugLn gameStatus evaluate move 7 state
+    return $ PlayerResult (Just (depth, nodes)) ((snd . head) moves)
                          
 mcHumanMove :: PlayerDebug
 mcHumanMove debugLn state = do 
