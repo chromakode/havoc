@@ -25,7 +25,9 @@ iterativelyDeepenC debugLn doSearch startData seconds state
                  let elapsed = diffUTCTime curTime startTime
                  let remain = seconds - elapsed
                  let remainMicroseconds = floor (remain * 10^6)
-                 let tryDepth = lastDepth+1
+                 let tryDepth = if even lastDepth && lastDepth < 6
+                                  then lastDepth+2 -- Skip to avoid horizon effect on low odd depths
+                                  else lastDepth+1
                  if remainMicroseconds < 0
                      then return out
                      else do result <- timeout remainMicroseconds (runDepth tryDepth continueData)
