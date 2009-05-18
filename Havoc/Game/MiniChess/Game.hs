@@ -15,7 +15,7 @@ startBoard = readBoard startBoardText
             \PPPPP\n\
             \RNBQK\n"
             
-startState = State 0 White startBoard
+startState = State 1 White startBoard
 
 gameStatus :: State -> Status
 gameStatus state
@@ -29,7 +29,7 @@ gameStatus state
         isDeadKing = (length kings) == 1
         remainingKingColor = (colorOf . head) kings
 
-        isDraw = (turn state) >= 80
+        isDraw = (turn state) > 40
                || null moves
         
         moves = moveGen state

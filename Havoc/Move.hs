@@ -94,9 +94,12 @@ genericMoveGen pieceMoves state@(State turn turnColor board) =
               
 genericMove :: Move -> State -> State
 genericMove (fromSquare, toSquare) (State turn turnColor board)
-    = State (turn+1) (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
+    = State turn' (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
     where
         movedPiece = board ! fromSquare
+        turn' = case turnColor of
+                  White -> turn
+                  Black -> turn+1
 
 validMove :: PieceMoveGen -> State -> Move -> Bool
 validMove pieceMoves state@(State turn turnColor board) move@(fromSquare, _)
