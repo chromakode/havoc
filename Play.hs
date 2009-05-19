@@ -82,10 +82,16 @@ playerFor NegamaxPruned = mcNegamaxPrunedMove
 play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> State -> IO State
 play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
     = case (gameStatus state) of
-        status@(End _ _)     -> do gameOver state status; return state
+        status@(End _ _)     -> do putStrLn $ show state
+                                   if hasIO
+                                     then putStr "= "
+                                     else return ()
+                                   putStrLn $ explainStatus status
+                                   return state
+                                   
         Continue state moves -> do let curPlayer = playerOfColor turnColor
                                        oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
-                                   putStrLn (show state)
+                                   putStrLn $ show state
                                    putStrLn $ show curPlayer ++ " moving..."
                                    
                                    Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
@@ -108,15 +114,13 @@ play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
                 White -> whitePlayer
                 Black -> blackPlayer
                 
+        hasIO = whitePlayer == IO || blackPlayer == IO
+                
         playerMove player = playerFor player debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
             | otherwise      = return ()
-                               
-gameOver state status = do 
-    putStrLn $ show state
-    putStrLn $ explainStatus status
 
 -- Program and command line argument stuff
 
