@@ -53,16 +53,18 @@ negamaxPrunedMove gameStatus evaluate move state depth = do
     where
         status = gameStatus state
     
-        runTopPrune nodes []               localBest ourBest bestMove = return (nodes, bestMove)
-        runTopPrune nodes ((m,s):statuses) localBest ourBest bestMove = do
+        runTopPrune nodes []               localBest ourBest bestMoves = return (nodes, bestMoves)
+        runTopPrune nodes ((m,s):statuses) localBest ourBest bestMoves = do
             (snodes, moveValueNeg) <- negamaxPruned gameStatus evaluate move s (depth-1) (-1) (-ourBest)
             let nodes'     = nodes + snodes
-                localBest' = max localBest (-moveValueNeg)
-                ourBest'   = max ourBest localBest'
-                
-            if (localBest' > localBest)
-                then runTopPrune nodes' statuses localBest' ourBest' [(localBest', m)]
-                else runTopPrune nodes' statuses localBest' ourBest' bestMove
+                curValue   = -moveValueNeg
+                localBest' = max localBest curValue
+                ourBest'   = max ourBest curValue
+                bestMoves' = case compare curValue localBest of 
+                               GT -> [(curValue, m)]
+                               EQ -> (curValue, m):bestMoves
+                               LT -> bestMoves
+            runTopPrune nodes' statuses localBest' ourBest' bestMoves'
 
 negamaxPrunedMoveID :: (String -> IO ()) -> (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Double, Move)])
 negamaxPrunedMoveID debugLn gameStatus evaluate move seconds state = iterativelyDeepen debugLn (negamaxPrunedMove gameStatus evaluate move) seconds state

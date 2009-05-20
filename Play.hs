@@ -39,18 +39,15 @@ mcRandomMove debugLn state = do
     m <- randomChoice (moveGen state)
     return $ PlayerResult (Just (1, 1)) m
 
-mcNegamaxMove :: PlayerDebug
-mcNegamaxMove debugLn state = do
-    (depth, nodes, moves) <- negamaxMovesID debugLn gameStatus evaluate move 7 state
+mcNegamaxMove' mover debugLn state = do
+    (depth, nodes, moves) <- mover debugLn gameStatus evaluate move 7 state
     debugLn $ "Choosing from moves: " ++ showScoredMoves state moves
     (s, m) <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m
-    
-mcNegamaxPrunedMove :: PlayerDebug
-mcNegamaxPrunedMove debugLn state = do
-    (depth, nodes, moves) <- negamaxPrunedMoveID debugLn gameStatus evaluate move 7 state
-    return $ PlayerResult (Just (depth, nodes)) ((snd . head) moves)
-                         
+
+mcNegamaxMove       = mcNegamaxMove' negamaxMovesID
+mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMoveID
+     
 mcHumanMove :: PlayerDebug
 mcHumanMove debugLn state = do 
     line <- readline "Your move: "
