@@ -8,7 +8,7 @@ evaluate :: Status -> Int
 evaluate status
     = case status of
         End state (Win color) -> gameOverScore color state
-        End _ Draw            -> 9950
+        End _ Draw            -> 0
         Continue state _      -> (sum . map ($status)) [ naiveMaterialScore ]
 
 gameOverScore :: Color -> State -> Int
