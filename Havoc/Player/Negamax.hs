@@ -18,7 +18,7 @@ negamaxChildNodes status depth
                       End _ _          -> Nothing
                       Continue _ moves -> Just moves
 
-negamax :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> State -> Int -> (Int, Double)
+negamax :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> State -> Int -> (Int, Int)
 negamax gameStatus evaluate move state depth
     = case negamaxChildNodes status depth of
         Nothing    -> (1, evaluate status)
@@ -32,7 +32,7 @@ negamax gameStatus evaluate move state depth
                                                             | m <- moves]
                                  values = map negate values
 
-negamaxMoves :: (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> State -> Int -> (Int, [(Double, Move)])
+negamaxMoves :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> State -> Int -> (Int, [(Int, Move)])
 negamaxMoves gameStatus evaluate move state depth
     = case negamaxChildNodes (gameStatus state) depth of
         Nothing    -> (1, [])
@@ -42,6 +42,6 @@ negamaxMoves gameStatus evaluate move state depth
                             doNegamax = negamax gameStatus evaluate move
 
 
-negamaxMovesID :: (String -> IO ()) -> (State -> Status) -> (Status -> Double) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Double, Move)])
+negamaxMovesID :: (String -> IO ()) -> (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
 negamaxMovesID debugLn gameStatus evaluate move seconds state = iterativelyDeepen debugLn (\s d -> return (negamaxMoves gameStatus evaluate move s d)) seconds state
 

@@ -26,8 +26,8 @@ timedIO action = do
 timedPlayer :: Player -> State -> IO (Timed PlayerResult)
 timedPlayer player state = do timedIO (player state)
 
-showScoredMoves :: State -> [(Double, Move)] -> String
+showScoredMoves :: State -> [(Int, Move)] -> String
 showScoredMoves state moves
     = intercalate " | "
-    . map (\(s,m) -> (printf "%+.2f : " s) ++ (showMove' state m))
+    . map (\(s,m) -> (printf "%+d : " s) ++ (showMove' state m))
     $ moves

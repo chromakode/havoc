@@ -4,42 +4,36 @@ import Havoc.State
 import Havoc.Game
 import Havoc.Game.MiniChess.Game
 
-evaluate :: Status -> Double
+evaluate :: Status -> Int
 evaluate status
     = case status of
         End state (Win color) -> gameOverScore color state
-        End _ Draw            -> 0.95
-        Continue state _      -> (sum . map ($status)) [ (0.95*) . naiveMaterialScore ]
+        End _ Draw            -> 9950
+        Continue state _      -> (sum . map ($status)) [ naiveMaterialScore ]
 
-gameOverScore :: Color -> State -> Double
+gameOverScore :: Color -> State -> Int
 gameOverScore winColor state
-    = sign
-    + 0.04 * (-sign) * (turnNum/40)
+    = sign * max_eval_score
+    + (-sign) * turnNum * 2
     where 
         sign = if winColor == (turnColor state) then 1 else -1
-        turnNum = (fromIntegral . turn) state
+        turnNum = turn state
 
-naiveMaterialScore :: Status -> Double
+naiveMaterialScore :: Status -> Int
 naiveMaterialScore (Continue (State turn turnColor board) _)
-    = ((sum . (map score)) (pieces board)) / maxScore
+    = (sum . (map score)) (pieces board)
     where
         score (Piece color pieceType) = (colorScore color) * (typeScore pieceType)
         
         colorScore color = if color == turnColor then 1 else -1
         
-        typeScore Pawn   = 1
-        typeScore Knight = 3
-        typeScore Bishop = 5
-        typeScore Rook   = 5
-        typeScore Queen  = 9
+        typeScore Pawn   = 100
+        typeScore Knight = 300
+        typeScore Bishop = 500
+        typeScore Rook   = 500
+        typeScore Queen  = 900
         typeScore King   = 0
 
-        maxScore = 5*(typeScore Pawn)
-                 + (typeScore Knight)
-                 + (typeScore Bishop)
-                 + (typeScore Rook)
-                 + (typeScore Queen)
-
-coverageScore :: Status -> Double
+coverageScore :: Status -> Int
 coverageScore status@(Continue _ moves)
-    = (fromIntegral (length moves)) / 100
+    = (length moves)
