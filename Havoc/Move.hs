@@ -1,7 +1,6 @@
 module Havoc.Move where
 
 import Data.Ix (inRange)
-import Data.List (unfoldr)
 import Data.Array ((!), (//), bounds)
 import Havoc.State
 
@@ -9,15 +8,6 @@ data Direction = North | Northeast | East | Southeast | South | Southwest | West
 type Move = (Square, Square)
 data MoveType = Move | Capture | MoveCapture
 type PieceMoveGen = State -> Position -> [Square]
-
--- Take alternate items from a list of lists
--- E.g. [[1,2], [3,4]] => [1,3,2,4]
-stripe :: [[a]] -> [a]
-stripe =  concat . (unfoldr next)
-       where next b = if (not (null b'))
-                          then Just (map head b', map tail b')
-                          else Nothing
-                    where b' = filter (not . null) b
 
 takeWhileAnd :: (a -> Bool) -> ([a] -> [a]) -> [a] -> [a]
 takeWhileAnd p f xs = ys ++ f zs
@@ -71,8 +61,7 @@ lineMove capture direction state@(State turn turnColor board) square
 
 lineMoves :: MoveType -> [Direction] -> State -> Square -> [Square]
 lineMoves capture directions state square
-    = stripe 
-    $ map (\d -> lineMove capture d state square) directions
+    = concatMap (\d -> lineMove capture d state square) directions
 
 knightMoves :: State -> Square -> [Square]
 knightMoves state square@(i,j)
@@ -87,10 +76,10 @@ moveGenSquare pieceMoves state fromSquare = moveGenPosition pieceMoves state pos
     where position = (fromSquare, (board state) ! fromSquare)
 
 genericMoveGen :: PieceMoveGen -> State -> [Move]
-genericMoveGen pieceMoves state@(State turn turnColor board) =
-    stripe [moveGenPosition pieceMoves state position
-               | position@(square, Piece pieceColor _) <- positions board
-               , pieceColor == turnColor ]
+genericMoveGen pieceMoves state@(State turn turnColor board)
+    = concat [moveGenPosition pieceMoves state position
+             | position@(square, Piece pieceColor _) <- positions board
+             , pieceColor == turnColor ]
               
 genericMove :: Move -> State -> State
 genericMove (fromSquare, toSquare) (State turn turnColor board)
