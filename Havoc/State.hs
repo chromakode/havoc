@@ -1,6 +1,6 @@
 module Havoc.State where
 
-import Data.Array
+import Data.Array.ST
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -13,12 +13,12 @@ data Piece = Piece { colorOf   :: Color
            deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
-type Board = Array Square Piece
+type Board s = STArray s Square Piece
 type BoardBounds = (Square, Square)
 
-data State = State { turn      :: Int
-                   , turnColor :: Color
-                   , board     :: Board }
+data State s = State { turn      :: Int
+                     , turnColor :: Color
+                     , board     :: Board s }
            deriving Eq
 
 instance Show Color where
@@ -77,35 +77,44 @@ instance Read Piece where
                 | isUpper c  = White
                 | otherwise  = Black
 
-readBoard :: String -> Board
-readBoard text = listArray ((0,0),(i-1,j-1)) pieces
+readBoard :: String -> ST s Board
+readBoard text = do
+    return $ newListArray ((0,0),(i-1,j-1)) pieces
     where
         ls = lines (dropWhile isSpace text)
         i = length ls
         j = length (head ls)
         pieces = map (read . (:[])) (concat ls)
 
-showBoard :: Board -> String
-showBoard board =
-    unlines [concat
-                [show (board ! (i,j)) | j <- [lj..uj]]
-            | i <- [li..ui]]
-    where ((li,lj),(ui,uj)) = bounds board
+showBoard :: ST s Board -> String
+showBoard board = do
+    ((li,lj),(ui,uj)) <- getBounds board
+    return $ unlines [concat
+                       [show (board ! (i,j)) | j <- [lj..uj]]
+                     | i <- [li..ui]]
 
-isBlank :: Board -> Square -> Bool
-isBlank board square = (board ! square) == Blank
+isBlank :: Board -> Square -> ST s Bool
+isBlank board square = do
+    piece <- readArray board square
+    return $ piece == Blank
 
-isColor :: Board -> Color -> Square -> Bool
-isColor board color square = (colorOf (board ! square)) == color
+isColor :: Board -> Color -> Square -> ST s Bool
+isColor board color square = do
+    piece <- readArray board square
+    return $ (colorOf piece) == color
 
-isTurnColor :: State -> Square -> Bool
+isTurnColor :: State -> Square -> ST s Bool
 isTurnColor (State turn turnColor board) square = isColor board turnColor square
 
-pieces :: Board -> [Piece]
-pieces board = filter (/=Blank) (elems board)
+pieces :: Board -> ST s [Piece]
+pieces board = do
+    elems <- getElems board
+    return $ filter (/=Blank) elems
 
-positions :: Board -> [Position]
-positions board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
+positions :: Board -> ST s [Position]
+positions board = do
+    assocs <- getAssocs board
+    return $ filter (\(s,p) -> p /= Blank) assocs
 
 endRow :: Color -> Board -> Int
 endRow color board
