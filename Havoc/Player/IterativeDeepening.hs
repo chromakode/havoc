@@ -3,12 +3,14 @@
 module Havoc.Player.IterativeDeepening where
 
 import Data.Time.Clock
+import Numeric
 import System.Timeout
 import Havoc.Game
 import Havoc.Move
 import Havoc.Notation
 import Havoc.Player
 import Havoc.State
+import Havoc.Utils
 
 iterativelyDeepenC :: (String -> IO ()) -> (State -> Int -> a -> IO (Int, [(Int, Move)], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
 iterativelyDeepenC debugLn doSearch startData seconds state
@@ -34,6 +36,7 @@ iterativelyDeepenC debugLn doSearch startData seconds state
                              case result of
                                Nothing                            -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
+                                   debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ printSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
                                    return out
                                Just (nodes', moves, continueData) -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": " ++ showScoredMoves state moves

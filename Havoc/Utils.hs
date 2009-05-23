@@ -1,6 +1,8 @@
 module Havoc.Utils where
 
+import Data.Time.Clock (NominalDiffTime)
 import Data.List (unfoldr)
+import Numeric
 
 minimumsBy :: (Ord b) => (a -> b) -> [a] -> [a]
 minimumsBy p [] = []
@@ -29,3 +31,8 @@ stripe =  concat . (unfoldr next)
                           else Nothing
                     where b' = filter (not . null) b
 
+printSeconds :: Int -> NominalDiffTime -> String
+printSeconds digits duration = showFFloat (Just digits) seconds ""
+    where
+        -- This is pretty dumb. 
+        seconds = (fromRational . toRational) duration
