@@ -1,20 +1,15 @@
 module Havoc.Move where
 
+import Control.Monad
+import Control.Monad.ST
 import Data.Ix (inRange)
-import Data.Array ((!), (//), bounds)
+import Data.Array.ST
 import Havoc.State
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
 data MoveType = Move | Capture | MoveCapture
-type PieceMoveGen = State -> Position -> [Square]
-
-takeWhileAnd :: (a -> Bool) -> ([a] -> [a]) -> [a] -> [a]
-takeWhileAnd p f xs = ys ++ f zs
-    where (ys,zs)   = span p xs
-
-takeIf :: Int -> (a -> Bool) -> [a] -> [a]
-takeIf n p = (filter p) . (take n)
+type PieceMoveGen = GameState -> Position -> [Square]
 
 dirMove :: Direction -> Square -> Square
 dirMove North     (i,j) = (i-1,j)
@@ -26,72 +21,98 @@ dirMove Southeast (i,j) = (i+1,j+1)
 dirMove Southwest (i,j) = (i+1,j-1)
 dirMove Northwest (i,j) = (i-1,j-1)
 
+canCapture :: GameState s -> ST s Bool
 canCapture state = not . isTurnColor state
 
-validPointMove :: MoveType -> State -> Square -> Bool
-validPointMove capture state@(State turn turnColor board) square
-    =  inRange (bounds board) square
-    && case capture of
-         Move        -> isBlank board square
-         Capture     -> (not . isBlank board) square && canCapture state square
-         MoveCapture -> isBlank board square || canCapture state square
+validPointMove :: MoveType -> GameState s -> Square -> ST s Bool
+validPointMove capture state@(GameState turn turnColor board) square = do
+    bounds <- getBounds board
+    inRange bounds square
+      && case capture of
+           Move        -> isBlank board square
+           Capture     -> all $ sequence [ (not . isBlank board) square
+                                         , canCapture state square]
+           MoveCapture -> any $ sequence [ isBlank board square
+                                         , canCapture state square]
 
-validPointMoves :: MoveType -> State -> [Square] -> [Square]
-validPointMoves capture state = filter (validPointMove capture state)
+validPointMoves :: MoveType -> GameState s -> [Square] -> ST s [Square]
+validPointMoves capture state = filterM (validPointMove capture state)
 
-dirMoves :: MoveType -> [Direction] -> State -> Square -> [Square]
+dirMoves :: MoveType -> [Direction] -> GameState s -> Square -> ST s [Square]
 dirMoves capture directions state square
     = validPointMoves capture state
     $ map (`dirMove` square) directions
 
-lineMove :: MoveType -> Direction -> State -> Square -> [Square]
-lineMove capture direction state@(State turn turnColor board) square
-    = untilBlocked
-    . takeWhile (inRange (bounds board))
-    . drop 1
-    $ iterate (dirMove direction) square
+lineMove :: MoveType -> Direction -> GameStates  -> Square -> ST s [Square]
+lineMove capture direction state@(GameState turn turnColor board) square = do
+    bounds <- getBounds board
+    untilBlocked
+        . takeWhile (inRange bounds)
+        . drop 1
+        $ iterate (dirMove direction) square
     where
-        untilBlocked
-            = case capture of
-                Move        -> takeWhile (isBlank board)
-                Capture     -> takeCaptureMove . dropWhile (isBlank board)
-                MoveCapture -> takeWhileAnd (isBlank board) takeCaptureMove
-                
-        takeCaptureMove = takeIf 1 (canCapture state)
+        untilBlocked [] = return []
+        untilBlocked (s:squares) = case capture of
+            Move -> do
+                blank <- isBlank board s
+                if blank
+                    then continue $ Just s
+                    else return []
+                    
+            Capture -> do
+                blank   <- isBlank board s
+                capture <- canCapture state s
+                if blank
+                    then continue Nothing
+                    else doCapture capture s
+            
+            MoveCapture -> do
+                blank   <- isBlank board s
+                capture <- canCapture state s
+                if blank
+                    then continue $ Just s
+                    else doCapture capture s
+            
+            where
+                continue (Just s) = untilBlocked squares >>= (\tail -> s : tail)
+                continue Nothing  = untilBlocked squares
+                doCapture capture s = if capture then [s] else []
 
-lineMoves :: MoveType -> [Direction] -> State -> Square -> [Square]
+lineMoves :: MoveType -> [Direction] -> GameState s -> Square -> ST s [Square]
 lineMoves capture directions state square
-    = concatMap (\d -> lineMove capture d state square) directions
+    = (concat . mapM) (\d -> lineMove capture d state square) directions
 
-knightMoves :: State -> Square -> [Square]
+knightMoves :: GameState s -> Square -> ST s [Square]
 knightMoves state square@(i,j)
     = validPointMoves MoveCapture state
     $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
 
-moveGenPosition :: PieceMoveGen -> State -> Position -> [Move]
+moveGenPosition :: PieceMoveGen -> GameState s -> Position -> ST s [Move]
 moveGenPosition pieceMoves state position@(fromSquare, _) = map ((,) fromSquare) (pieceMoves state position)
 
-moveGenSquare :: PieceMoveGen -> State -> Square -> [Move]
-moveGenSquare pieceMoves state fromSquare = moveGenPosition pieceMoves state position
-    where position = (fromSquare, (board state) ! fromSquare)
+moveGenSquare :: PieceMoveGen -> GameState s -> Square -> ST s [Move]
+moveGenSquare pieceMoves state fromSquare = do
+    piece <- readArray board fromSquare
+    moveGenPosition pieceMoves state (fromSquare, piece)
 
-genericMoveGen :: PieceMoveGen -> State -> [Move]
-genericMoveGen pieceMoves state@(State turn turnColor board)
-    = concat [moveGenPosition pieceMoves state position
-             | position@(square, Piece pieceColor _) <- positions board
-             , pieceColor == turnColor ]
+genericMoveGen :: PieceMoveGen -> GameState s -> ST s [Move]
+genericMoveGen pieceMoves state@(GameState turn turnColor board)
+    = (concat . sequence) 
+        [moveGenPosition pieceMoves state position
+        | position@(square, Piece pieceColor _) <- positions board
+        , pieceColor == turnColor ]
               
-genericMove :: Move -> State -> State
-genericMove (fromSquare, toSquare) (State turn turnColor board)
-    = State turn' (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
+genericMove :: Move -> GameState s -> ST s (GameState s)
+genericMove (fromSquare, toSquare) (GameState turn turnColor board)
+    = GameState turn' (invertColor turnColor) (board // [(fromSquare, Blank), (toSquare, movedPiece)])
     where
         movedPiece = board ! fromSquare
         turn' = case turnColor of
                   White -> turn
                   Black -> turn+1
 
-validMove :: PieceMoveGen -> State -> Move -> Bool
-validMove pieceMoves state@(State turn turnColor board) move@(fromSquare, _)
+validMove :: PieceMoveGen -> GameState -> Move -> Bool
+validMove pieceMoves state@(GameState turn turnColor board) move@(fromSquare, _)
     | movedPiece == Blank     = error ("Move.validMove: no piece at position " ++ (show fromSquare))
     | turnColor /= movedColor = error "Move.validMove: piece does not belong to color on move"
     | not moveValid           = error "Move.validMove: invalid move for piece"

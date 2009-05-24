@@ -1,5 +1,7 @@
 module Havoc.State where
 
+import Control.Monad
+import Control.Monad.ST
 import Data.Array.ST
 import Data.Char
 import Data.List
@@ -16,10 +18,10 @@ type Position = (Square, Piece)
 type Board s = STArray s Square Piece
 type BoardBounds = (Square, Square)
 
-data State s = State { turn      :: Int
-                     , turnColor :: Color
-                     , board     :: Board s }
-           deriving Eq
+data GameState s = GameState { turn      :: Int
+                             , turnColor :: Color
+                             , board     :: Board s }
+                 deriving Eq
 
 instance Show Color where
     show White = "W"
@@ -77,59 +79,61 @@ instance Read Piece where
                 | isUpper c  = White
                 | otherwise  = Black
 
-readBoard :: String -> ST s Board
+readBoard :: String -> ST s (Board s)
 readBoard text = do
-    return $ newListArray ((0,0),(i-1,j-1)) pieces
+    newListArray ((0,0),(i-1,j-1)) pieces
     where
         ls = lines (dropWhile isSpace text)
         i = length ls
         j = length (head ls)
         pieces = map (read . (:[])) (concat ls)
 
-showBoard :: ST s Board -> String
+showBoard :: Board s -> ST s String
 showBoard board = do
     ((li,lj),(ui,uj)) <- getBounds board
-    return $ unlines [concat
-                       [show (board ! (i,j)) | j <- [lj..uj]]
-                     | i <- [li..ui]]
+    pieces <- (mapM . mapM) (readArray board) [ [(i,j) | j <- [lj..uj]]
+                                              | i <- [li..ui]]
+    return $ unlines $ (map . concatMap) show pieces
 
-isBlank :: Board -> Square -> ST s Bool
+isBlank :: Board s -> Square -> ST s Bool
 isBlank board square = do
     piece <- readArray board square
     return $ piece == Blank
 
-isColor :: Board -> Color -> Square -> ST s Bool
+isColor :: Board s -> Color -> Square -> ST s Bool
 isColor board color square = do
     piece <- readArray board square
     return $ (colorOf piece) == color
 
-isTurnColor :: State -> Square -> ST s Bool
-isTurnColor (State turn turnColor board) square = isColor board turnColor square
+isTurnColor :: GameState s -> Square -> ST s Bool
+isTurnColor (GameState turn turnColor board) square = isColor board turnColor square
 
-pieces :: Board -> ST s [Piece]
+pieces :: Board s -> ST s [Piece]
 pieces board = do
     elems <- getElems board
     return $ filter (/=Blank) elems
 
-positions :: Board -> ST s [Position]
+positions :: Board s -> ST s [Position]
 positions board = do
     assocs <- getAssocs board
     return $ filter (\(s,p) -> p /= Blank) assocs
 
-endRow :: Color -> Board -> Int
-endRow color board
-    = case color of
-        White -> li
-        Black -> ui
-    where ((li,lj),(ui,uj)) = bounds board
-        
+endRow :: Color -> Board s -> ST s Int
+endRow color board = do
+    ((li,lj),(ui,uj)) <- getBounds board
+    return $ case color of
+               White -> li
+               Black -> ui        
 
-instance Show State where
-    show (State turn turnColor board) =
-        show turn ++ " " ++ show turnColor ++ "\n"
-        ++ showBoard board
-        
-instance Read State where
-    readsPrec p s = [(State turn turnColor (readBoard u), "")
-                        | (turn, t)  <- readsPrec p s
-                        , (turnColor, u) <- readsPrec p t]                      
+showState :: GameState s -> ST s String
+showState (GameState turn turnColor board) = do
+    boardText <- showBoard board
+    return $ show turn ++ " " ++ show turnColor ++ "\n"
+                  ++ boardText
+
+readState :: String -> ST s (GameState s)  
+readState s = do
+    let (turn, t)      = head $ readsPrec 0 s
+        (turnColor, u) = head $ readsPrec 0 t
+    board <- readBoard u
+    return $ GameState turn turnColor board                    
