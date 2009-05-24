@@ -105,7 +105,7 @@ pieces :: Board -> [Piece]
 pieces board = filter (/=Blank) (elems board)
 
 positions :: Board -> [Position]
-positions board = filter (\(s,p) -> (not . isBlank board) s) (assocs board)
+positions board = filter (\(s,p) -> p /= Blank) (assocs board)
 
 endRow :: Color -> Board -> Int
 endRow color board
