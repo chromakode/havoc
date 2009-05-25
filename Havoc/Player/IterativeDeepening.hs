@@ -13,13 +13,13 @@ import Havoc.Notation
 import Havoc.Player
 import Havoc.Utils
 
-iterativelyDeepen :: (String -> IO ()) -> (a -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> a -> IO (Int, Int, [(Int, Move)])
+iterativelyDeepen :: (String -> IO ()) -> (GameState RealWorld -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> GameState RealWorld -> IO (Int, Int, [(Int, Move)])
 iterativelyDeepen debugLn doSearch seconds state
     = do startTime <- getCurrentTime
          run startTime (0, 0, [])
     where
         runDepth depth = do
-            state' <- copyGameState state
+            state' <- stToIO $ copyGameState state
             !(!nodes, !moves) <- doSearch state' depth
             return (nodes, moves)
         
@@ -35,10 +35,11 @@ iterativelyDeepen debugLn doSearch seconds state
                      then return out
                      else do result <- timeout remainMicroseconds (runDepth tryDepth)
                              case result of
-                               Nothing                            -> do
+                               Nothing -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
                                    debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ printSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
                                    return out
                                Just (nodes', moves) -> do
-                                   debugLn $ "Depth " ++ show tryDepth ++ ": " ++ showScoredMoves state moves
+                                   scoredMoves <- stToIO $ showScoredMoves state moves
+                                   debugLn $ "Depth " ++ show tryDepth ++ ": " ++ scoredMoves
                                    run startTime (tryDepth, nodes+nodes', moves)
