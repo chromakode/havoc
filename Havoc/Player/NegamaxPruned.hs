@@ -1,5 +1,7 @@
 module Havoc.Player.NegamaxPruned where
 
+import Control.Monad
+import Control.Monad.ST
 import Data.List
 import Data.Maybe
 import Data.Ord
@@ -7,22 +9,25 @@ import Data.Time.Clock
 import Havoc.Game
 import Havoc.Game.Move
 import Havoc.Game.State
+import Havoc.Player.DoUndo
 import Havoc.Player.IterativeDeepening
 import Havoc.Player.Negamax (negamaxChildNodes)
 import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: a s -> [Move] -> IO [(Move, Status)]
+shuffleAndSortStatuses :: (Game a) => a s -> [Move] -> IO [(Move, a s, GameStatus)]
 shuffleAndSortStatuses state moves = do
-    let statuses = [(m, (gameStatus . move m) state) | m <- moves]
+    let statuses = mapMoves state (\(m,s) -> do status <- gameStatus s
+                                                return (m, status)
+                                  ) moves
     stdGen <- getStdGen
     let statusShuffled = shuffle' statuses (length statuses) stdGen
-        statusSorted   = sortBy (comparing (evaluate . snd)) statusShuffled
+        statusSorted   = (liftM2 sortBy) ((liftM3 comparing) (evaluate . snd)) statusShuffled
     return statusSorted
 
-negamaxPruned :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> Status -> Int -> Int -> Int -> IO (Int, Int)
-negamaxPruned gameStatus evaluate move status depth ourBest theirBest = do
+negamaxPruned :: Status -> Int -> Int -> Int -> IO (Int, Int)
+negamaxPruned status depth ourBest theirBest = do
     case negamaxChildNodes status depth of
         Nothing    -> return (1, evaluate status)
         Just moves -> do statusSorted <- shuffleAndSortStatuses gameStatus evaluate move status moves
@@ -44,8 +49,8 @@ negamaxPruned gameStatus evaluate move status depth ourBest theirBest = do
                 -- This is a reasonable move. Keep searching.
                 else runPrune nodes' statuses localBest' ourBest'
                 
-negamaxPrunedMove :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> State -> Int -> IO (Int, [(Int, Move)])
-negamaxPrunedMove gameStatus evaluate move state depth = do
+negamaxPrunedMove :: (Game a) => a s -> Int -> IO (Int, [(Int, Move)])
+negamaxPrunedMove state depth = do
     case negamaxChildNodes status depth of
         Nothing    -> return (1, [])
         Just moves -> do statusSorted <- shuffleAndSortStatuses gameStatus evaluate move status moves
