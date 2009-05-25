@@ -1,4 +1,4 @@
-module Havoc.Game.Chesslike.State where
+module Havoc.Game.State where
 
 import Control.Monad
 import Control.Monad.ST
@@ -136,4 +136,15 @@ readGameState s = do
     let (turn, t)      = head $ readsPrec 0 s
         (turnColor, u) = head $ readsPrec 0 t
     board <- readBoard u
-    return $ GameState turn turnColor board                    
+    return $ GameState turn turnColor board
+    
+copyBoard :: Board s -> ST s (Board s)
+copyBoard board = do
+    bounds <- getBounds board
+    elems  <- getElems board
+    newListArray bounds elems
+    
+copyGameState :: GameState s -> ST s (GameState s)
+copyGameState (GameState turn turnColor board) = do
+    board' <- copyBoard board
+    return $ GameState turn turnColor board'

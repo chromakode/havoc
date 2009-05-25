@@ -3,14 +3,12 @@ module Havoc.Player where
 import Data.List
 import Data.Time.Clock
 import Text.Printf
-import Havoc.Move
 import Havoc.Notation
-import Havoc.State
 
 data PlayerResult = PlayerResult { searchStats :: Maybe (Int,Int)
                                  , playerMove  :: Move            }
 
-type Player = State -> IO PlayerResult
+type Player = a s -> ST s PlayerResult
 type PlayerDebug = (String -> IO ()) -> Player
 
 data Timed a = Timed { time        :: NominalDiffTime 
@@ -23,8 +21,8 @@ timedIO action = do
     t2 <- getCurrentTime
     return $ Timed (diffUTCTime t2 t1) r
 
-timedPlayer :: Player -> State -> IO (Timed PlayerResult)
-timedPlayer player state = do timedIO (player state)
+timedPlayer :: Player -> a s -> IO (Timed PlayerResult)
+timedPlayer player state = timedIO (stToIO (player state))
 
 showScoredMoves :: State -> [(Int, Move)] -> String
 showScoredMoves state moves

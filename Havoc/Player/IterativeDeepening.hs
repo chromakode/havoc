@@ -6,23 +6,21 @@ import Data.Time.Clock
 import Numeric
 import System.Timeout
 import Havoc.Game
-import Havoc.Move
 import Havoc.Notation
 import Havoc.Player
-import Havoc.State
 import Havoc.Utils
 
-iterativelyDeepenC :: (String -> IO ()) -> (State -> Int -> a -> IO (Int, [(Int, Move)], a)) -> a -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
-iterativelyDeepenC debugLn doSearch startData seconds state
+iterativelyDeepen :: (String -> IO ()) -> (a s -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> a s -> IO (Int, Int, [(Int, Move)])
+iterativelyDeepen debugLn doSearch seconds state
     = do startTime <- getCurrentTime
-         run startTime (0, 0, []) startData
-         
+         run startTime (0, 0, [])
     where
-        runDepth depth continueData = do
-            !(!nodes, !moves, !continueData') <- doSearch state depth continueData
-            return (nodes, moves, continueData')
+        runDepth depth = stToIO $ do
+            state' <- copyState state
+            !(!nodes, !moves) <- doSearch state' depth
+            return (nodes, moves)
         
-        run startTime out@(lastDepth, nodes, lastMoves) continueData
+        run startTime out@(lastDepth, nodes, lastMoves)
             = do curTime <- getCurrentTime
                  let elapsed = diffUTCTime curTime startTime
                  let remain = seconds - elapsed
@@ -32,20 +30,12 @@ iterativelyDeepenC debugLn doSearch startData seconds state
                                   else lastDepth+1
                  if remainMicroseconds < 0
                      then return out
-                     else do result <- timeout remainMicroseconds (runDepth tryDepth continueData)
+                     else do result <- timeout remainMicroseconds (runDepth tryDepth)
                              case result of
                                Nothing                            -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
                                    debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ printSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
                                    return out
-                               Just (nodes', moves, continueData) -> do
+                               Just (nodes', moves) -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": " ++ showScoredMoves state moves
-                                   run startTime (tryDepth, nodes+nodes', moves) continueData
-
-iterativelyDeepen :: (String -> IO ()) -> (State -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
-iterativelyDeepen debugLn doSearch
-    = iterativelyDeepenC debugLn doSearchC ()
-    where
-        doSearchC state depth _ = do
-            (nodes, moves) <- doSearch state depth
-            return (nodes, moves, ())
+                                   run startTime (tryDepth, nodes+nodes', moves)

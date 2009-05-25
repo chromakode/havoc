@@ -1,9 +1,9 @@
-module Havoc.Game.Chesslike.MiniChess.Evaluate where
+module Havoc.Game.MiniChess.Evaluate where
 
 import Control.Monad
 import Control.Monad.ST
 import Havoc.Game
-import Havoc.Game.Chesslike.State
+import Havoc.Game.State
 
 mcEvaluate :: GameState s -> GameStatus -> ST s Int
 mcEvaluate state status

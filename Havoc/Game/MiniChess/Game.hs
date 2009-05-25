@@ -1,12 +1,12 @@
-module Havoc.Game.Chesslike.MiniChess.Game where
+module Havoc.Game.MiniChess.Game where
 
 import Control.Monad
 import Control.Monad.ST
 import Havoc.Game
-import Havoc.Game.Chesslike.State
-import Havoc.Game.Chesslike.Move
-import Havoc.Game.Chesslike.MiniChess.Evaluate
-import Havoc.Game.Chesslike.MiniChess.Move
+import Havoc.Game.State
+import Havoc.Game.Move
+import Havoc.Game.MiniChess.Evaluate
+import Havoc.Game.MiniChess.Move
 
 mcStartBoard :: ST s (Board s)
 mcStartBoard = readBoard mcStartBoardText
@@ -38,9 +38,10 @@ instance Game MCState where
                     then return $ End Draw
                     else return $ Continue moves
 
-    moveGen (MCState state)   = genericMoveGen mcMoves state
-    move (MCState state) move = mcMove state move >>= (\(s, d) -> return (MCState s, d))
-    evaluate (MCState state)  = mcEvaluate state
+    moveGen (MCState state)       = chessMoveGen mcMoves state
+    doMove (MCState state) move   = mcMove state move >>= (\(s, d) -> return (MCState s, d))
+    undoMove (MCState state) diff = (chessUndoMove state diff) >>= return . MCState
+    evaluate (MCState state)      = mcEvaluate state
     
     startState = mcStartBoard >>= (\board -> return $ MCState (GameState 1 White board))
     

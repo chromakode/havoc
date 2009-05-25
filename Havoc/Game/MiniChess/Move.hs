@@ -1,10 +1,10 @@
-module Havoc.Game.Chesslike.MiniChess.Move where
+module Havoc.Game.MiniChess.Move where
 
 import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST
-import Havoc.Game.Chesslike.State
-import Havoc.Game.Chesslike.Move
+import Havoc.Game.State
+import Havoc.Game.Move
 
 mcMoves :: GameState s -> Position -> ST s [Square]
 mcMoves state (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] state square
@@ -31,6 +31,6 @@ handlePromotion toSquare state@(GameState turn turnColor board) = do
 
 mcMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
 mcMove state move@(fromSquare, toSquare) = do
-    (newState, diff) <- doMove state move
+    (newState, diff) <- chessDoMove state move
     handlePromotion toSquare newState
     return (newState, diff)

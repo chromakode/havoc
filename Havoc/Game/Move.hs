@@ -1,11 +1,11 @@
-module Havoc.Game.Chesslike.Move where
+module Havoc.Game.Move where
 
 import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Ix (inRange)
 import Data.List (union)
-import Havoc.Game.Chesslike.State
+import Havoc.Game.State
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
@@ -108,16 +108,16 @@ moveGenSquare pieceMoves state@(GameState turn turnColor board) fromSquare = do
     piece <- readArray board fromSquare
     moveGenPosition pieceMoves state (fromSquare, piece)
 
-genericMoveGen :: PieceMoveGen s -> GameState s -> ST s [Move]
-genericMoveGen pieceMoves state@(GameState turn turnColor board) = do
+chessMoveGen :: PieceMoveGen s -> GameState s -> ST s [Move]
+chessMoveGen pieceMoves state@(GameState turn turnColor board) = do
     pos <- positions board
     ((liftM concat) . sequence) 
         [moveGenPosition pieceMoves state position
         | position@(square, Piece pieceColor _) <- pos
         , pieceColor == turnColor ]
 
-doMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
-doMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do 
+chessDoMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
+chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do 
     movedPiece <- readArray board fromSquare
     takenPiece <- readArray board toSquare
     writeArray board fromSquare Blank
@@ -130,8 +130,8 @@ doMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do
                   White -> turn
                   Black -> turn+1
 
-undoMove :: GameState s -> MoveDiff -> ST s (GameState s)
-undoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece) = do 
+chessUndoMove :: GameState s -> MoveDiff -> ST s (GameState s)
+chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece) = do 
     writeArray board fromSquare movedPiece
     writeArray board toSquare takenPiece
     return $ GameState turn' (invertColor turnColor) board
