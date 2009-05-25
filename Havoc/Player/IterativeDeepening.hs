@@ -2,21 +2,24 @@
 
 module Havoc.Player.IterativeDeepening where
 
+import Control.Monad.ST
 import Data.Time.Clock
 import Numeric
 import System.Timeout
 import Havoc.Game
+import Havoc.Game.Move
+import Havoc.Game.State
 import Havoc.Notation
 import Havoc.Player
 import Havoc.Utils
 
-iterativelyDeepen :: (String -> IO ()) -> (a s -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> a s -> IO (Int, Int, [(Int, Move)])
+iterativelyDeepen :: (String -> IO ()) -> (a -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> a -> IO (Int, Int, [(Int, Move)])
 iterativelyDeepen debugLn doSearch seconds state
     = do startTime <- getCurrentTime
          run startTime (0, 0, [])
     where
-        runDepth depth = stToIO $ do
-            state' <- copyState state
+        runDepth depth = do
+            state' <- copyGameState state
             !(!nodes, !moves) <- doSearch state' depth
             return (nodes, moves)
         

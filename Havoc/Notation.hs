@@ -1,9 +1,10 @@
 module Havoc.Notation where
 
-import Data.Array
+import Control.Monad.ST
+import Data.Array.ST
 import Data.Char
-import Havoc.State
-import Havoc.Move
+import Havoc.Game.State
+import Havoc.Game.Move
 
 readCoord :: BoardBounds -> String -> Square
 readCoord ((li,lj),(ui,uj)) (alphaCol:numRow)
@@ -22,8 +23,8 @@ readMove bbounds moveStr = (readCoord bbounds fromCoord, readCoord bbounds toCoo
                 (fc, '-':tc) -> (fc, tc)
                 _            -> error "Notation.decodeMove: unable to read move"
 
-readMove' :: State -> String -> Move
-readMove' state = readMove ((bounds . board) state)
+readMove' :: GameState s -> String -> ST s Move
+readMove' state text = (getBounds . board) state >>= (\bounds -> return $ readMove bounds text)
 
 showCoord :: BoardBounds -> Square -> String
 showCoord ((li,lj),(ui,uj)) (i,j) = column : row
@@ -34,5 +35,5 @@ showCoord ((li,lj),(ui,uj)) (i,j) = column : row
 showMove :: BoardBounds -> Move -> String
 showMove bbounds (fromSquare, toSquare) = (showCoord bbounds fromSquare) ++ "-" ++ (showCoord bbounds toSquare)
 
-showMove' :: State -> Move -> String
-showMove' state = showMove ((bounds . board) state)
+showMove' :: GameState s -> Move -> ST s String
+showMove' state move = (getBounds . board) state >>= (\bounds -> return $ showMove bounds move)
