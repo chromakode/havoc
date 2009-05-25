@@ -20,9 +20,9 @@ class Game a where
     doMove      :: a s -> Move -> ST s (a s, MoveDiff)
     undoMove    :: a s -> MoveDiff -> ST s (a s)
     evaluate    :: a s -> GameStatus -> ST s Int
-    
-    showState   :: a s -> ST s String
-    readState   :: String -> ST s (a s)
+
+    copyState   :: a s -> ST s (a s)
+    gameState   :: a s -> GameState s
 
 max_eval_score :: Int
 max_eval_score = 9999

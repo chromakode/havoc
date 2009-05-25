@@ -29,7 +29,7 @@ timedIO action = do
 timedPlayer :: Player a -> a -> IO (Timed PlayerResult)
 timedPlayer player state = timedIO (player state)
 
-showScoredMoves :: GameState s -> [(Int, Move)] -> ST s String
+showScoredMoves :: (Game a) => a s -> [(Int, Move)] -> ST s String
 showScoredMoves state moves = do
     scores <- mapM (\(s,m) -> do
         mtext <- showMove' state m

@@ -45,5 +45,5 @@ instance Game MCState where
     undoMove (MCState state) diff = (chessUndoMove state diff) >>= return . MCState
     evaluate (MCState state)      = mcEvaluate state
     
-    showState (MCState state) = showGameState state
-    readState = (liftM MCState) . readGameState
+    copyState (MCState state)     = copyGameState state >>= liftM MCState
+    gameState (MCState state)     = state

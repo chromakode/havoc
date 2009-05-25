@@ -21,28 +21,30 @@ negamaxChildNodes status depth
                       End _          -> Nothing
                       Continue moves -> Just moves
 
-negamax :: GameState s -> Int -> STRef s Int -> ST s Int
+negamax :: (Game a) => a s -> Int -> STRef s Int -> ST s Int
 negamax state depth nodeCount = do
     modifySTRef nodeCount (+1)
     status <- gameStatus state
     case negamaxChildNodes status depth of
-        Nothing    -> (1, evaluate status)
+        Nothing    -> evaluate state status
         Just moves -> negamaxValue moves
     where        
         negamaxValue moves = do
-            values <- mapMoves (\s -> -(negamax s (depth-1) nodeCount)) moves
-            return $ maximum values
+            values <- mapMoves state (\(_,s) -> negamax s (depth-1) nodeCount) moves
+            return $ minimum values
 
-negamaxMoves :: GameState s -> Int -> (Int, [(Int, Move)])
-negamaxMoves state depth
-    = case negamaxChildNodes (gameStatus state) depth of
-        Nothing    -> (1, [])
-        Just moves -> (sum nodes, minimumsPair movevs)
-                      where (nodes, movevs) = unzip [(\(n,v) -> (n,(v,m))) $ doNegamax (move m state) depth
-                                                    | m <- moves]
-                            doNegamax = negamax gameStatus evaluate move
+negamaxMoves :: (Game a) => a s -> Int -> ST s (Int, [(Int, Move)])
+negamaxMoves state depth = do
+    status <- gameStatus state
+    case negamaxChildNodes status depth of
+        Nothing    -> return (1, [])
+        Just moves -> do nodeCount <- newSTRef 1
+                         movevs <- mapMoves state (\(m,s) -> do v <- negamax s (depth-1) nodeCount 
+                                                                return (v, m)
+                                                  ) moves
+                         nodes <- readSTRef nodeCount
+                         return (nodes, minimumsPair movevs)
 
-
-negamaxMovesID :: (String -> IO ()) -> NominalDiffTime -> GameState s -> IO (Int, Int, [(Int, Move)])
-negamaxMovesID debugLn seconds state = iterativelyDeepen debugLn (\s d -> return (negamaxMoves s d)) seconds state
+negamaxMovesID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
+negamaxMovesID debugLn seconds state = iterativelyDeepen debugLn (\s d -> stToIO (negamaxMoves s d)) seconds state
 

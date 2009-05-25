@@ -13,13 +13,13 @@ import Havoc.Notation
 import Havoc.Player
 import Havoc.Utils
 
-iterativelyDeepen :: (String -> IO ()) -> (GameState RealWorld -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> GameState RealWorld -> IO (Int, Int, [(Int, Move)])
+iterativelyDeepen :: (Game a) => (String -> IO ()) -> (a RealWorld -> Int -> IO (Int, [(Int, Move)])) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
 iterativelyDeepen debugLn doSearch seconds state
     = do startTime <- getCurrentTime
          run startTime (0, 0, [])
     where
         runDepth depth = do
-            state' <- stToIO $ copyGameState state
+            state' <- stToIO $ copyState state
             !(!nodes, !moves) <- doSearch state' depth
             return (nodes, moves)
         
