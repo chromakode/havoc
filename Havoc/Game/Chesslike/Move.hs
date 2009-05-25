@@ -1,10 +1,11 @@
-module Havoc.Move where
+module Havoc.Game.Chesslike.Move where
 
 import Control.Monad
 import Control.Monad.ST
-import Data.Ix (inRange)
 import Data.Array.ST
-import Havoc.State
+import Data.Ix (inRange)
+import Data.List (union)
+import Havoc.Game.Chesslike.State
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
@@ -89,6 +90,13 @@ knightMoves :: GameState s -> Square -> ST s [Square]
 knightMoves state square@(i,j)
     = validPointMoves MoveCapture state
     $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
+
+           
+(+..+) :: ST s [Square] -> ST s [Square] -> ST s [Square]
+mover1 +..+ mover2 = do
+    moves1 <- mover1
+    moves2 <- mover2
+    return $ union moves1 moves2
 
 moveGenPosition :: PieceMoveGen s -> GameState s -> Position -> ST s [Move]
 moveGenPosition pieceMoves state position@(fromSquare, _) = do

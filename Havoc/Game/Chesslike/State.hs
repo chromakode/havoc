@@ -1,4 +1,4 @@
-module Havoc.State where
+module Havoc.Game.Chesslike.State where
 
 import Control.Monad
 import Control.Monad.ST
