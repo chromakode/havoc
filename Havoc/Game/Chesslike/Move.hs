@@ -116,8 +116,8 @@ genericMoveGen pieceMoves state@(GameState turn turnColor board) = do
         | position@(square, Piece pieceColor _) <- pos
         , pieceColor == turnColor ]
 
-doMove :: Move -> GameState s -> ST s (GameState s, MoveDiff)
-doMove move@(fromSquare, toSquare) (GameState turn turnColor board) = do 
+doMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
+doMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do 
     movedPiece <- readArray board fromSquare
     takenPiece <- readArray board toSquare
     writeArray board fromSquare Blank
@@ -130,8 +130,8 @@ doMove move@(fromSquare, toSquare) (GameState turn turnColor board) = do
                   White -> turn
                   Black -> turn+1
 
-undoMove :: MoveDiff -> GameState s -> ST s (GameState s)
-undoMove (MoveDiff movedPiece (fromSquare, toSquare) takenPiece) (GameState turn turnColor board) = do 
+undoMove :: GameState s -> MoveDiff -> ST s (GameState s)
+undoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece) = do 
     writeArray board fromSquare movedPiece
     writeArray board toSquare takenPiece
     return $ GameState turn' (invertColor turnColor) board

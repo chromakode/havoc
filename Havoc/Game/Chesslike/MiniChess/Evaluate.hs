@@ -1,27 +1,27 @@
 module Havoc.Game.Chesslike.MiniChess.Evaluate where
 
+import Control.Monad
 import Control.Monad.ST
 import Havoc.Game
 import Havoc.Game.Chesslike.State
-import Havoc.Game.Chesslike.MiniChess.Game
 
-mcEvaluate :: MCState s -> Status -> Int
-mcEvaluate mcState status
+mcEvaluate :: GameState s -> GameStatus -> ST s Int
+mcEvaluate state status
     = case status of
-        End (Win color) -> gameOverScore color state
-        End Draw        -> 0
-        Continue _      -> (sum . map ($state)) [ naiveMaterialScore ]
+        End (Win color) -> return $ gameOverScore color state
+        End Draw        -> return 0
+        Continue _      -> ((liftM sum) . mapM ($state)) [ naiveMaterialScore ]
 
-gameOverScore :: Color -> MCState s -> ST s Int
-gameOverScore winColor mcState@(MCState state)
+gameOverScore :: Color -> GameState s -> Int
+gameOverScore winColor state
     = sign * max_eval_score
     + (-sign) * turnNum * 2
     where 
         sign = if winColor == (turnColor state) then 1 else -1
         turnNum = turn state
 
-naiveMaterialScore :: MCState s -> ST s Int
-naiveMaterialScore (MCState (GameState turn turnColor board)) = do
+naiveMaterialScore :: GameState s -> ST s Int
+naiveMaterialScore (GameState turn turnColor board) = do
     ps <- pieces board
     return $ (sum . (map score)) ps
     where

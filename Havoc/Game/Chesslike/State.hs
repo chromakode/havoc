@@ -125,14 +125,14 @@ endRow color board = do
                White -> li
                Black -> ui        
 
-showState :: GameState s -> ST s String
-showState (GameState turn turnColor board) = do
+showGameState :: GameState s -> ST s String
+showGameState (GameState turn turnColor board) = do
     boardText <- showBoard board
     return $ show turn ++ " " ++ show turnColor ++ "\n"
                   ++ boardText
 
-readState :: String -> ST s (GameState s)  
-readState s = do
+readGameState :: String -> ST s (GameState s)  
+readGameState s = do
     let (turn, t)      = head $ readsPrec 0 s
         (turnColor, u) = head $ readsPrec 0 t
     board <- readBoard u

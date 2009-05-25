@@ -29,8 +29,8 @@ handlePromotion toSquare state@(GameState turn turnColor board) = do
         then writeArray board toSquare (Piece pieceColor Queen)
         else return ()
 
-mcMove :: Move -> GameState s -> ST s (GameState s, MoveDiff)
-mcMove move@(fromSquare, toSquare) state = do
-    (newState, diff) <- doMove move state
+mcMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
+mcMove state move@(fromSquare, toSquare) = do
+    (newState, diff) <- doMove state move
     handlePromotion toSquare newState
     return (newState, diff)

@@ -1,5 +1,6 @@
 module Havoc.Game.Chesslike.MiniChess.Game where
 
+import Control.Monad
 import Control.Monad.ST
 import Havoc.Game
 import Havoc.Game.Chesslike.State
@@ -19,17 +20,16 @@ mcStartBoard = readBoard mcStartBoardText
             \RNBQK\n"
 
 newtype MCState s = MCState (GameState s)
-instance MCState Game where
-    gameStatus :: MCState s -> ST s Status
+instance Game MCState where
     gameStatus mcState@(MCState state) = do
-        ps <- pieces state
+        ps <- pieces (board state)
         
-        let king = filter ((King==) . pieceType)
+        let kings = filter ((King==) . pieceType) ps
             isDeadKing = (length kings) == 1
             remainingKingColor = (colorOf . head) kings
-            
-        if isDeadking
-          then return $ End state (Win remainingKingColor)
+
+        if isDeadKing
+          then return $ End (Win remainingKingColor)
           else do moves <- moveGen mcState
                   let isDraw = (turn state) > 40
                              || null moves
@@ -38,11 +38,11 @@ instance MCState Game where
                     then return $ End Draw
                     else return $ Continue moves
 
-    moveGen (MCState state) = genericMoveGen mcMoves state
-    move (MCState state)    = MCState . mcMove
+    moveGen (MCState state)   = genericMoveGen mcMoves state
+    move (MCState state) move = mcMove state move >>= (\(s, d) -> return (MCState s, d))
+    evaluate (MCState state)  = mcEvaluate state
     
-    startState = MCState 1 White mcStartBoard
-    evaluate   = mcEvaluate
+    startState = mcStartBoard >>= (\board -> return $ MCState (GameState 1 White board))
     
-    showState  = showState
-    readState  = readState
+    showState (MCState state) = showGameState state
+    readState = (liftM MCState) . readGameState

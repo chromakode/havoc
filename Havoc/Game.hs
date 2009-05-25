@@ -15,8 +15,8 @@ data GameStatus = End Result
 class Game a where
     gameStatus :: a s -> ST s GameStatus
     moveGen    :: a s -> ST s [Move]
-    move       :: Move -> a s -> ST s (a s, MoveDiff)
-    startState :: a s
+    move       :: a s -> Move -> ST s (a s, MoveDiff)
+    startState :: ST s (a s)
     evaluate   :: a s -> GameStatus -> ST s Int
     
     showState  :: a s -> ST s String
