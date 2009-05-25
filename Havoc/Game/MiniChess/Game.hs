@@ -21,6 +21,8 @@ mcStartBoard = readBoard mcStartBoardText
 
 newtype MCState s = MCState (GameState s)
 instance Game MCState where
+    startState = mcStartBoard >>= (\board -> return $ MCState (GameState 1 White board))
+
     gameStatus mcState@(MCState state) = do
         ps <- pieces (board state)
         
@@ -42,8 +44,6 @@ instance Game MCState where
     doMove (MCState state) move   = mcMove state move >>= (\(s, d) -> return (MCState s, d))
     undoMove (MCState state) diff = (chessUndoMove state diff) >>= return . MCState
     evaluate (MCState state)      = mcEvaluate state
-    
-    startState = mcStartBoard >>= (\board -> return $ MCState (GameState 1 White board))
     
     showState (MCState state) = showGameState state
     readState = (liftM MCState) . readGameState

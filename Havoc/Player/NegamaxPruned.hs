@@ -5,16 +5,16 @@ import Data.Maybe
 import Data.Ord
 import Data.Time.Clock
 import Havoc.Game
-import Havoc.Move
+import Havoc.Game.Move
+import Havoc.Game.State
 import Havoc.Player.IterativeDeepening
 import Havoc.Player.Negamax (negamaxChildNodes)
-import Havoc.State
 import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> Status -> [Move] -> IO [(Move, Status)]
-shuffleAndSortStatuses gameStatus evaluate move status@(Continue state _) moves = do
+shuffleAndSortStatuses :: a s -> [Move] -> IO [(Move, Status)]
+shuffleAndSortStatuses state moves = do
     let statuses = [(m, (gameStatus . move m) state) | m <- moves]
     stdGen <- getStdGen
     let statusShuffled = shuffle' statuses (length statuses) stdGen

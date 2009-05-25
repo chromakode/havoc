@@ -1,39 +1,40 @@
 module Havoc.Player.Negamax where
 
 import Control.Monad
+import Control.Monad.ST
 import Data.List
 import Data.Maybe
 import Data.Ord
+import Data.STRef
 import Data.Time
 import Havoc.Game
-import Havoc.Move
+import Havoc.Game.Move
+import Havoc.Game.State
+import Havoc.Player.DoUndo
 import Havoc.Player.IterativeDeepening
-import Havoc.State
 import Havoc.Utils
 
-negamaxChildNodes :: Status -> Int -> Maybe [Move]
+negamaxChildNodes :: GameStatus -> Int -> Maybe [Move]
 negamaxChildNodes status depth
     | depth == 0  = Nothing
     | otherwise   = case status of
-                      End _ _          -> Nothing
-                      Continue _ moves -> Just moves
+                      End _          -> Nothing
+                      Continue moves -> Just moves
 
-negamax :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> State -> Int -> (Int, Int)
-negamax gameStatus evaluate move state depth
-    = case negamaxChildNodes status depth of
+negamax :: GameState s -> Int -> STRef s Int -> ST s Int
+negamax state depth nodeCount = do
+    modifySTRef nodeCount (+1)
+    status <- gameStatus state
+    case negamaxChildNodes status depth of
         Nothing    -> (1, evaluate status)
         Just moves -> negamaxValue moves
-    where
-        status = gameStatus state
-        
-        recurse = negamax gameStatus evaluate move
-        negamaxValue moves = (sum nodes, maximum negvalues)
-                           where (nodes, negvalues) = unzip [recurse (move m state) (depth-1)
-                                                            | m <- moves]
-                                 values = map negate values
+    where        
+        negamaxValue moves = do
+            values <- mapMoves (\s -> -(negamax s (depth-1) nodeCount)) moves
+            return $ maximum values
 
-negamaxMoves :: (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> State -> Int -> (Int, [(Int, Move)])
-negamaxMoves gameStatus evaluate move state depth
+negamaxMoves :: GameState s -> Int -> (Int, [(Int, Move)])
+negamaxMoves state depth
     = case negamaxChildNodes (gameStatus state) depth of
         Nothing    -> (1, [])
         Just moves -> (sum nodes, minimumsPair movevs)
@@ -42,6 +43,6 @@ negamaxMoves gameStatus evaluate move state depth
                             doNegamax = negamax gameStatus evaluate move
 
 
-negamaxMovesID :: (String -> IO ()) -> (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
-negamaxMovesID debugLn gameStatus evaluate move seconds state = iterativelyDeepen debugLn (\s d -> return (negamaxMoves gameStatus evaluate move s d)) seconds state
+negamaxMovesID :: (String -> IO ()) -> NominalDiffTime -> GameState s -> IO (Int, Int, [(Int, Move)])
+negamaxMovesID debugLn seconds state = iterativelyDeepen debugLn (\s d -> return (negamaxMoves s d)) seconds state
 
