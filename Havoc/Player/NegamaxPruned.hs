@@ -5,6 +5,7 @@ import Control.Monad.ST
 import Data.List
 import Data.Maybe
 import Data.Ord
+import Data.STRef
 import Data.Time.Clock
 import Havoc.Game
 import Havoc.Game.Move
@@ -16,27 +17,28 @@ import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: (Game a) => a s -> [Move] -> IO [(Move, a s, GameStatus)]
-shuffleAndSortStatuses state moves = do
-    let statuses = mapMoves state (\(m,s) -> do status <- gameStatus s
-                                                return (m, status)
-                                  ) moves
-    stdGen <- getStdGen
+shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [(Move, a s, GameStatus)]
+shuffleAndSortStatuses stdGen state moves = do
+    statuses <- mapMoves state (\(m,s) -> do status <- gameStatus s
+                                             value  <- evaluate s status
+                                             return (value, (m, s, status))
+                               ) moves
     let statusShuffled = shuffle' statuses (length statuses) stdGen
-        statusSorted   = (liftM2 sortBy) ((liftM3 comparing) (evaluate . snd)) statusShuffled
-    return statusSorted
+    
+    
+        statusSorted   = sortBy (comparing fst) statusShuffled
+    return $ map snd statusSorted
 
-negamaxPruned :: Status -> Int -> Int -> Int -> IO (Int, Int)
-negamaxPruned status depth ourBest theirBest = do
+negamaxPruned :: (Game a) => a RealWorld -> GameStatus -> STRef RealWorld Int -> Int -> Int -> Int -> IO Int
+negamaxPruned state status nodeCount depth ourBest theirBest = do
     case negamaxChildNodes status depth of
-        Nothing    -> return (1, evaluate status)
-        Just moves -> do statusSorted <- shuffleAndSortStatuses gameStatus evaluate move status moves
+        Nothing    -> stToIO $ evaluate state status
+        Just moves -> do statusSorted <- shuffleAndSortStatuses status moves
                          runPrune 0 (map snd statusSorted) (-max_eval_score) ourBest
     where
-        recurse = negamaxPruned gameStatus evaluate move
         runPrune nodes []           localBest ourBest = return (nodes, localBest)
         runPrune nodes (s:statuses) localBest ourBest = do
-            (rnodes, moveValueNeg) <- recurse s (depth-1) (-theirBest) (-ourBest)
+            (rnodes, moveValueNeg) <- negamaxPruned s (depth-1) (-theirBest) (-ourBest)
             
             let nodes'     = nodes + rnodes
                 localBest' = max localBest (-moveValueNeg)
@@ -53,14 +55,14 @@ negamaxPrunedMove :: (Game a) => a s -> Int -> IO (Int, [(Int, Move)])
 negamaxPrunedMove state depth = do
     case negamaxChildNodes status depth of
         Nothing    -> return (1, [])
-        Just moves -> do statusSorted <- shuffleAndSortStatuses gameStatus evaluate move status moves
+        Just moves -> do statusSorted <- shuffleAndSortStatuses status moves
                          runTopPrune 0 statusSorted (-max_eval_score) (-max_eval_score) []
     where
         status = gameStatus state
     
         runTopPrune nodes []               localBest ourBest bestMoves = return (nodes, bestMoves)
         runTopPrune nodes ((m,s):statuses) localBest ourBest bestMoves = do
-            (snodes, moveValueNeg) <- negamaxPruned gameStatus evaluate move s (depth-1) (-1) (-ourBest)
+            (snodes, moveValueNeg) <- negamaxPruned s (depth-1) (-1) (-ourBest)
             let nodes'     = nodes + snodes
                 curValue   = -moveValueNeg
                 localBest' = max localBest curValue
@@ -71,6 +73,6 @@ negamaxPrunedMove state depth = do
                                LT -> bestMoves
             runTopPrune nodes' statuses localBest' ourBest' bestMoves'
 
-negamaxPrunedMoveID :: (String -> IO ()) -> (State -> Status) -> (Status -> Int) -> (Move -> State -> State) -> NominalDiffTime -> State -> IO (Int, Int, [(Int, Move)])
-negamaxPrunedMoveID debugLn gameStatus evaluate move seconds state = iterativelyDeepen debugLn (negamaxPrunedMove gameStatus evaluate move) seconds state
+negamaxPrunedMoveID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a s -> IO (Int, Int, [(Int, Move)])
+negamaxPrunedMoveID debugLn seconds state = iterativelyDeepen debugLn negamaxPrunedMove seconds state
 
