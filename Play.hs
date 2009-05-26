@@ -209,7 +209,7 @@ main = do
     case getOpt Permute options args of
       (o,n,[])   -> start (foldl (flip id) defaultOptions o)
       (_,_,errs) -> do putStr (concat errs); showHelp
-      
+
 start opts
     | help opts  = showHelp
     | list opts  = showPlayers

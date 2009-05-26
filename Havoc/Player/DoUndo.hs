@@ -10,6 +10,6 @@ mapMoves state f [] = return []
 mapMoves state f (m:moves) = do
     (state, undo) <- doMove state m
     result <- f (m, state)
-    undoMove state undo
+    state <- undoMove state undo
     tail <- mapMoves state f moves
     return $ result : tail

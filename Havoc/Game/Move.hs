@@ -10,7 +10,7 @@ import Havoc.Game.State
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
 data MoveType = Move | Capture | MoveCapture
-data MoveDiff = MoveDiff Piece Move Piece
+data MoveDiff = MoveDiff Piece Move Piece deriving Show
 type PieceMoveGen s = GameState s -> Position -> ST s [Square]
 
 dirMove :: Direction -> Square -> Square
