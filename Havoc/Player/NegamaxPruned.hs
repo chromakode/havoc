@@ -17,19 +17,18 @@ import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [Move]
+shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [(Move, GameStatus)]
 shuffleAndSortStatuses stdGen state moves = do
     moves <- mapMoves state (\(m,s) -> do status <- gameStatus s
                                           value  <- evaluate s status
-                                          return (value, m)
+                                          return (value, (m, status))
                             ) moves
     let movesShuffled = shuffle' moves (length moves) stdGen
         movesSorted   = sortBy (comparing fst) movesShuffled
     return $ map snd movesSorted
 
-negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Int -> Int -> IO Int
-negamaxPruned state nodeCount depth ourBest theirBest = do
-    status <- stToIO $ gameStatus state
+negamaxPruned :: (Game a) => a RealWorld -> GameStatus -> IORef Int -> Int -> Int -> Int -> IO Int
+negamaxPruned state status nodeCount depth ourBest theirBest = do
     case negamaxChildNodes status depth of
         Nothing    -> stToIO $ evaluate state status
         Just moves -> do stdGen <- getStdGen
@@ -37,10 +36,10 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
                          runPrune statusSorted (-max_eval_score) ourBest
     where
         runPrune [] localBest ourBest = return localBest
-        runPrune (move:moves) localBest ourBest = do
+        runPrune ((move,status):moves) localBest ourBest = do
             modifyIORef nodeCount (+1)
             
-            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
+            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned s status nodeCount (depth-1) (-theirBest) (-ourBest))
             
             let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
@@ -66,8 +65,8 @@ negamaxPrunedMove state depth = do
     
         runTopPrune [] nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
                                                                   return (nodes, bestMoves)
-        runTopPrune (move:moves) nodeCount localBest ourBest bestMoves = do
-            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned state nodeCount (depth-1) (-1) (-ourBest))
+        runTopPrune ((move,status):moves) nodeCount localBest ourBest bestMoves = do
+            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned state status nodeCount (depth-1) (-1) (-ourBest))
             let curValue   = -moveValueNeg
                 localBest' = max localBest curValue
                 ourBest'   = max ourBest curValue
