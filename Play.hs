@@ -79,24 +79,23 @@ playerFor NegamaxPruned = mcNegamaxPrunedMove
 
 --- Game loop
 
-play :: (Game a) => PlayerType -> PlayerType -> (String -> IO()) -> Bool -> a RealWorld -> IO (a RealWorld)
+play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> MiniChess RealWorld -> IO (MiniChess RealWorld)
 play whitePlayer blackPlayer logLn debug state = do
     status <- stToIO $ gameStatus state
     case status of
-        status@(End _) -> do gameStateText <- stToIO $ (showGameState . gameState) state
-                             putStrLn gameStateText
+        status@(End _) -> do (stToIO $ (showGameState . gameState) state) >>= putStrLn
                              if hasIO
                                then putStr "= "
                                else return ()
                              putStrLn $ explainStatus state status
                              return state
                                    
-        Continue moves -> do let curPlayer = playerOfColor turnColor
-                                 oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
+        Continue moves -> do let curPlayer = (playerOfColor . turnColor . gameState) state
+                                 oppIsIO   = (playerOfColor . invertColor . turnColor . gameState) state == IO
                              
-                             putStrLn $ show state
+                             (stToIO $ (showGameState . gameState) state) >>= putStrLn
                              putStrLn $ show curPlayer ++ " moving..."
-                                 
+                             
                              Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
                                    
                              debugLn $ "Player returned move"
@@ -105,11 +104,12 @@ play whitePlayer blackPlayer logLn debug state = do
                                                     ++ " (" ++ (show nodes) ++ " nodes)"))
                                         stats)
                                      ++ " after " ++ (show dt)
-                             logLn $ showMove' state m
-                             when oppIsIO $ putStrLn $ "! " ++ showMove' state m
+                             (stToIO $ showMove' state m) >>= logLn
+                             when oppIsIO $
+                                (stToIO $ showMove' state m) >>= putStrLn . ("! "++)
                              putStrLn ""
                              
-                             newstate <- doMove state m
+                             (newstate, diff) <- stToIO $ doMove state m
                              play whitePlayer blackPlayer logLn debug newstate
     where
         playerOfColor color
@@ -198,7 +198,8 @@ logGame name playWithLog
                log $ "---"
                endState <- playWithLog log
                log $ "---"
-               log $ explainStatus (gameStatus endState)
+               endStatus <- stToIO $ gameStatus endState
+               log $ explainStatus endState endStatus
                t2 <- getZonedTime
                log $ "Game ended: " ++ formatTime defaultTimeLocale "%c" t2
         
@@ -216,5 +217,5 @@ start opts
                      Nothing   -> do startPlay noLog; return ()
                      Just name -> logGame name startPlay
     where
-        startPlay log = play (whitePlayer opts) (blackPlayer opts) log (debug opts) startState
+        startPlay log = stToIO startState >>= play (whitePlayer opts) (blackPlayer opts) log (debug opts)
         noLog = (\_ -> return ())
