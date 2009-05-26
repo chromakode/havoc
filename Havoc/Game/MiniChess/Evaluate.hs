@@ -1,17 +1,18 @@
 module Havoc.Game.MiniChess.Evaluate where
 
-import Havoc.State
+import Control.Monad
+import Control.Monad.ST
 import Havoc.Game
-import Havoc.Game.MiniChess.Game
+import Havoc.Game.State
 
-evaluate :: Status -> Int
-evaluate status
+mcEvaluate :: GameState s -> GameStatus -> ST s Int
+mcEvaluate state status
     = case status of
-        End state (Win color) -> gameOverScore color state
-        End _ Draw            -> 0
-        Continue state _      -> (sum . map ($status)) [ naiveMaterialScore ]
+        End (Win color) -> return $ gameOverScore color state
+        End Draw        -> return 0
+        Continue _      -> ((liftM sum) . mapM ($state)) [ naiveMaterialScore ]
 
-gameOverScore :: Color -> State -> Int
+gameOverScore :: Color -> GameState s -> Int
 gameOverScore winColor state
     = sign * max_eval_score
     + (-sign) * turnNum * 2
@@ -19,9 +20,10 @@ gameOverScore winColor state
         sign = if winColor == (turnColor state) then 1 else -1
         turnNum = turn state
 
-naiveMaterialScore :: Status -> Int
-naiveMaterialScore (Continue (State turn turnColor board) _)
-    = (sum . (map score)) (pieces board)
+naiveMaterialScore :: GameState s -> ST s Int
+naiveMaterialScore (GameState turn turnColor board) = do
+    ps <- pieces board
+    return $ (sum . (map score)) ps
     where
         score (Piece color pieceType) = (colorScore color) * (typeScore pieceType)
         
@@ -33,7 +35,3 @@ naiveMaterialScore (Continue (State turn turnColor board) _)
         typeScore Rook   = 500
         typeScore Queen  = 900
         typeScore King   = 0
-
-coverageScore :: Status -> Int
-coverageScore status@(Continue _ moves)
-    = (length moves)

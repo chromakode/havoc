@@ -1,17 +1,20 @@
 module Havoc.Player where
 
+import Control.Monad
+import Control.Monad.ST
 import Data.List
 import Data.Time.Clock
 import Text.Printf
-import Havoc.Move
+import Havoc.Game
+import Havoc.Game.Move
+import Havoc.Game.State
 import Havoc.Notation
-import Havoc.State
 
 data PlayerResult = PlayerResult { searchStats :: Maybe (Int,Int)
                                  , playerMove  :: Move            }
 
-type Player = State -> IO PlayerResult
-type PlayerDebug = (String -> IO ()) -> Player
+type Player a = a -> IO PlayerResult
+type PlayerDebug a = (String -> IO ()) -> Player a
 
 data Timed a = Timed { time        :: NominalDiffTime 
                      , timedResult :: a               }
@@ -23,11 +26,13 @@ timedIO action = do
     t2 <- getCurrentTime
     return $ Timed (diffUTCTime t2 t1) r
 
-timedPlayer :: Player -> State -> IO (Timed PlayerResult)
-timedPlayer player state = do timedIO (player state)
+timedPlayer :: Player a -> a -> IO (Timed PlayerResult)
+timedPlayer player state = timedIO (player state)
 
-showScoredMoves :: State -> [(Int, Move)] -> String
-showScoredMoves state moves
-    = intercalate " | "
-    . map (\(s,m) -> (printf "%+d : " s) ++ (showMove' state m))
-    $ moves
+showScoredMoves :: (Game a) => a s -> [(Int, Move)] -> ST s String
+showScoredMoves state moves = do
+    scores <- mapM (\(s,m) -> do
+        mtext <- showMove' state m
+        return $ printf "%+d : " s ++ mtext
+        ) moves
+    return $ intercalate " | " scores
