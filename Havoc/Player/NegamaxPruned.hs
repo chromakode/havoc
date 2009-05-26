@@ -17,20 +17,19 @@ import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [(Move, a s, GameStatus)]
+shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [Move]
 shuffleAndSortStatuses stdGen state moves = do
-    statuses <- mapMoves state (\(m,s) -> do status <- gameStatus s
-                                             value  <- evaluate s status
-                                             return (value, (m, s, status))
-                               ) moves
-    let statusShuffled = shuffle' statuses (length statuses) stdGen
-    
-    
-        statusSorted   = sortBy (comparing fst) statusShuffled
-    return $ map snd statusSorted
+    moves <- mapMoves state (\(m,s) -> do status <- gameStatus s
+                                          value  <- evaluate s status
+                                          return (value, m)
+                            ) moves
+    let movesShuffled = shuffle' moves (length moves) stdGen
+        movesSorted   = sortBy (comparing fst) movesShuffled
+    return $ map snd movesSorted
 
-negamaxPruned :: (Game a) => a RealWorld -> GameStatus -> IORef Int -> Int -> Int -> Int -> IO Int
-negamaxPruned state status nodeCount depth ourBest theirBest = do
+negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Int -> Int -> IO Int
+negamaxPruned state nodeCount depth ourBest theirBest = do
+    status <- stToIO $ gameStatus state
     case negamaxChildNodes status depth of
         Nothing    -> stToIO $ evaluate state status
         Just moves -> do stdGen <- getStdGen
@@ -38,9 +37,10 @@ negamaxPruned state status nodeCount depth ourBest theirBest = do
                          runPrune statusSorted (-max_eval_score) ourBest
     where
         runPrune [] localBest ourBest = return localBest
-        runPrune ((move, state, status):statuses) localBest ourBest = do
+        runPrune (move:moves) localBest ourBest = do
             modifyIORef nodeCount (+1)
-            moveValueNeg <- negamaxPruned state status nodeCount (depth-1) (-theirBest) (-ourBest)
+            
+            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
             
             let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
@@ -50,7 +50,7 @@ negamaxPruned state status nodeCount depth ourBest theirBest = do
                 then return localBest'
                 
                 -- This is a reasonable move. Keep searching.
-                else runPrune statuses localBest' ourBest'
+                else runPrune moves localBest' ourBest'
                 
 negamaxPrunedMove :: (Game a) => a RealWorld -> Int -> IO (Int, [(Int, Move)])
 negamaxPrunedMove state depth = do
@@ -66,8 +66,8 @@ negamaxPrunedMove state depth = do
     
         runTopPrune [] nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
                                                                   return (nodes, bestMoves)
-        runTopPrune ((move, state, status):statuses) nodeCount localBest ourBest bestMoves = do
-            moveValueNeg <- negamaxPruned state status nodeCount (depth-1) (-1) (-ourBest)
+        runTopPrune (move:moves) nodeCount localBest ourBest bestMoves = do
+            moveValueNeg <- doUndoIO state move (\(m,s) -> negamaxPruned state nodeCount (depth-1) (-1) (-ourBest))
             let curValue   = -moveValueNeg
                 localBest' = max localBest curValue
                 ourBest'   = max ourBest curValue
@@ -75,7 +75,7 @@ negamaxPrunedMove state depth = do
                                GT -> [(curValue, move)]
                                EQ -> (curValue, move):bestMoves
                                LT -> bestMoves
-            runTopPrune statuses nodeCount localBest' ourBest' bestMoves'
+            runTopPrune moves nodeCount localBest' ourBest' bestMoves'
 
 negamaxPrunedMoveID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
 negamaxPrunedMoveID debugLn seconds state = iterativelyDeepen debugLn negamaxPrunedMove seconds state
