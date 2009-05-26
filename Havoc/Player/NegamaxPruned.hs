@@ -5,7 +5,7 @@ import Control.Monad.ST
 import Data.List
 import Data.Maybe
 import Data.Ord
-import Data.STRef
+import Data.IORef
 import Data.Time.Clock
 import Havoc.Game
 import Havoc.Game.Move
@@ -29,50 +29,54 @@ shuffleAndSortStatuses stdGen state moves = do
         statusSorted   = sortBy (comparing fst) statusShuffled
     return $ map snd statusSorted
 
-negamaxPruned :: (Game a) => a RealWorld -> GameStatus -> STRef RealWorld Int -> Int -> Int -> Int -> IO Int
+negamaxPruned :: (Game a) => a RealWorld -> GameStatus -> IORef Int -> Int -> Int -> Int -> IO Int
 negamaxPruned state status nodeCount depth ourBest theirBest = do
     case negamaxChildNodes status depth of
         Nothing    -> stToIO $ evaluate state status
-        Just moves -> do statusSorted <- shuffleAndSortStatuses status moves
-                         runPrune 0 (map snd statusSorted) (-max_eval_score) ourBest
+        Just moves -> do stdGen <- getStdGen
+                         statusSorted <- stToIO $ shuffleAndSortStatuses stdGen state moves
+                         runPrune statusSorted (-max_eval_score) ourBest
     where
-        runPrune nodes []           localBest ourBest = return (nodes, localBest)
-        runPrune nodes (s:statuses) localBest ourBest = do
-            (rnodes, moveValueNeg) <- negamaxPruned s (depth-1) (-theirBest) (-ourBest)
+        runPrune [] localBest ourBest = return localBest
+        runPrune ((move, state, status):statuses) localBest ourBest = do
+            modifyIORef nodeCount (+1)
+            moveValueNeg <- negamaxPruned state status nodeCount (depth-1) (-theirBest) (-ourBest)
             
-            let nodes'     = nodes + rnodes
-                localBest' = max localBest (-moveValueNeg)
+            let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
             
             if (localBest' >= theirBest)
                 -- This plays out better than our opponent can force us to be. Stop searching here.
-                then return (nodes', localBest')
+                then return localBest'
                 
                 -- This is a reasonable move. Keep searching.
-                else runPrune nodes' statuses localBest' ourBest'
+                else runPrune statuses localBest' ourBest'
                 
-negamaxPrunedMove :: (Game a) => a s -> Int -> IO (Int, [(Int, Move)])
+negamaxPrunedMove :: (Game a) => a RealWorld -> Int -> IO (Int, [(Int, Move)])
 negamaxPrunedMove state depth = do
+    status <- stToIO $ gameStatus state
     case negamaxChildNodes status depth of
         Nothing    -> return (1, [])
-        Just moves -> do statusSorted <- shuffleAndSortStatuses status moves
-                         runTopPrune 0 statusSorted (-max_eval_score) (-max_eval_score) []
+        Just moves -> do nodeCount <- newIORef 1
+                         stdGen <- getStdGen
+                         statusSorted <- stToIO $ shuffleAndSortStatuses stdGen state moves
+                         runTopPrune statusSorted nodeCount (-max_eval_score) (-max_eval_score) []
     where
         status = gameStatus state
     
-        runTopPrune nodes []               localBest ourBest bestMoves = return (nodes, bestMoves)
-        runTopPrune nodes ((m,s):statuses) localBest ourBest bestMoves = do
-            (snodes, moveValueNeg) <- negamaxPruned s (depth-1) (-1) (-ourBest)
-            let nodes'     = nodes + snodes
-                curValue   = -moveValueNeg
+        runTopPrune [] nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
+                                                                  return (nodes, bestMoves)
+        runTopPrune ((move, state, status):statuses) nodeCount localBest ourBest bestMoves = do
+            moveValueNeg <- negamaxPruned state status nodeCount (depth-1) (-1) (-ourBest)
+            let curValue   = -moveValueNeg
                 localBest' = max localBest curValue
                 ourBest'   = max ourBest curValue
                 bestMoves' = case compare curValue localBest of 
-                               GT -> [(curValue, m)]
-                               EQ -> (curValue, m):bestMoves
+                               GT -> [(curValue, move)]
+                               EQ -> (curValue, move):bestMoves
                                LT -> bestMoves
-            runTopPrune nodes' statuses localBest' ourBest' bestMoves'
+            runTopPrune statuses nodeCount localBest' ourBest' bestMoves'
 
-negamaxPrunedMoveID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a s -> IO (Int, Int, [(Int, Move)])
+negamaxPrunedMoveID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
 negamaxPrunedMoveID debugLn seconds state = iterativelyDeepen debugLn negamaxPrunedMove seconds state
 
