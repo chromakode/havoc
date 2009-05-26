@@ -31,7 +31,7 @@ negamax state nodeCount depth = do
     where        
         negamaxValue moves = do
             values <- mapMoves state (\(_,s) -> negamax s nodeCount (depth-1)) moves
-            return $ minimum values
+            return $ (negate . minimum) values
 
 negamaxMoves :: (Game a) => a s -> Int -> ST s (Int, [(Int, Move)])
 negamaxMoves state depth = do
