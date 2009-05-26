@@ -5,12 +5,15 @@ import Control.Monad.ST
 import Havoc.Game
 import Havoc.Game.State
 
+mcEvaluateState :: GameState s -> ST s Int
+mcEvaluateState state = ((liftM sum) . mapM ($state)) [ naiveMaterialScore ]
+
 mcEvaluate :: GameState s -> GameStatus -> ST s Int
 mcEvaluate state status
     = case status of
         End (Win color) -> return $ gameOverScore color state
         End Draw        -> return 0
-        Continue _      -> ((liftM sum) . mapM ($state)) [ naiveMaterialScore ]
+        Continue _      -> mcEvaluateState state
 
 gameOverScore :: Color -> GameState s -> Int
 gameOverScore winColor state

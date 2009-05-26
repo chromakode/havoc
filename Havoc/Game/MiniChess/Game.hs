@@ -45,6 +45,7 @@ instance Game MiniChess where
     doMove (MiniChess state) move   = mcMove state move >>= (\(s, d) -> return (MiniChess s, d))
     undoMove (MiniChess state) diff = (chessUndoMove state diff) >>= return . MiniChess
     evaluate (MiniChess state)      = mcEvaluate state
+    evaluateFast (MiniChess state)  = mcEvaluateState state
     
     copyState (MiniChess state)     = copyGameState state >>= return . MiniChess
     gameState (MiniChess state)     = state
