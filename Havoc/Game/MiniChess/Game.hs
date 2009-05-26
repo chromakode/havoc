@@ -19,11 +19,11 @@ mcStartBoard = readBoard mcStartBoardText
             \PPPPP\n\
             \RNBQK\n"
 
-newtype MCState s = MCState (GameState s)
-instance Game MCState where
-    startState = mcStartBoard >>= (\board -> return $ MCState (GameState 1 White board))
+newtype MiniChess s = MiniChess (GameState s)
+instance Game MiniChess where
+    startState = mcStartBoard >>= (\board -> return $ MiniChess (GameState 1 White board))
 
-    gameStatus mcState@(MCState state) = do
+    gameStatus mcState@(MiniChess state) = do
         ps <- pieces (board state)
         
         let kings = filter ((King==) . pieceType) ps
@@ -40,10 +40,11 @@ instance Game MCState where
                     then return $ End Draw
                     else return $ Continue moves
 
-    moveGen (MCState state)       = chessMoveGen mcMoves state
-    doMove (MCState state) move   = mcMove state move >>= (\(s, d) -> return (MCState s, d))
-    undoMove (MCState state) diff = (chessUndoMove state diff) >>= return . MCState
-    evaluate (MCState state)      = mcEvaluate state
+    moveGen (MiniChess state)       = chessMoveGen mcMoves state
+    validMove (MiniChess state)     = chessValidMove mcMoves state
+    doMove (MiniChess state) move   = mcMove state move >>= (\(s, d) -> return (MiniChess s, d))
+    undoMove (MiniChess state) diff = (chessUndoMove state diff) >>= return . MiniChess
+    evaluate (MiniChess state)      = mcEvaluate state
     
-    copyState (MCState state)     = copyGameState state >>= liftM MCState
-    gameState (MCState state)     = state
+    copyState (MiniChess state)     = copyGameState state >>= return . MiniChess
+    gameState (MiniChess state)     = state

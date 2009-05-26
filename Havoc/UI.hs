@@ -1,18 +1,21 @@
 module Havoc.UI where
 
+import Control.Monad.ST
 import Data.Array
 import Havoc.Game
-import Havoc.Move
+import Havoc.Game.Move
+import Havoc.Game.State
 import Havoc.Notation
-import Havoc.State
 
-humanMove :: PieceMoveGen -> String -> State -> Move
-humanMove pieceMoves moveStr state 
-    | validMove pieceMoves state m  = m
-    | otherwise          = error "UI.humanMove: invalid move specified"
-    where m = readMove' state moveStr
+humanMove :: (Game a) => a s -> String -> ST s Move
+humanMove state moveStr = do
+    move  <- readMove' state moveStr
+    valid <- validMove state move
+    if valid
+        then return move
+        else error "UI.humanMove: invalid move specified"
 
-explainStatus :: Status -> String
-explainStatus (End _ (Win color)) = (colorName color) ++ " wins."
-explainStatus (End _ Draw)        = "The game is a draw."
-explainStatus (Continue state _)  = (colorName (turnColor state)) ++ " to move."
+explainStatus :: (Game a) => a s -> GameStatus -> String
+explainStatus state (End (Win color)) = (colorName color) ++ " wins."
+explainStatus state (End Draw)        = "The game is a draw."
+explainStatus state (Continue _)      = (colorName ((turnColor . gameState) state)) ++ " to move."

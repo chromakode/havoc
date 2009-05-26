@@ -2,6 +2,7 @@ import Prelude hiding (catch)
 
 import Control.Exception hiding (evaluate)
 import Control.Monad
+import Control.Monad.ST
 import Data.List
 import Data.Maybe
 import Data.Time.LocalTime
@@ -14,8 +15,8 @@ import System.Directory
 import System.IO
 import System.Locale
 import Havoc.Game
-import Havoc.Move
-import Havoc.State
+import Havoc.Game.Move
+import Havoc.Game.State
 import Havoc.Notation
 import Havoc.Player
 import Havoc.Player.IterativeDeepening
@@ -23,9 +24,7 @@ import Havoc.Player.Negamax
 import Havoc.Player.NegamaxPruned
 import Havoc.UI
 import Havoc.Utils
-import Havoc.Game.MiniChess.Move
 import Havoc.Game.MiniChess.Game
-import Havoc.Game.MiniChess.Evaluate
 
 -- Player definitions
 
@@ -34,40 +33,44 @@ randomChoice xs = do
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
-mcRandomMove :: PlayerDebug
+mcRandomMove :: PlayerDebug (MiniChess RealWorld)
 mcRandomMove debugLn state = do
-    m <- randomChoice (moveGen state)
-    return $ PlayerResult (Just (1, 1)) m
+    moves <- stToIO $ moveGen state
+    move <- randomChoice moves
+    return $ PlayerResult (Just (1, 1)) move
 
 mcNegamaxMove' mover debugLn state = do
-    (depth, nodes, moves) <- mover debugLn gameStatus evaluate move 7 state
-    debugLn $ "Choosing from moves: " ++ showScoredMoves state moves
+    (depth, nodes, moves) <- mover debugLn 7 state
+    scores <- stToIO $ showScoredMoves state moves
+    debugLn $ "Choosing from moves: " ++ scores
     (s, m) <- randomChoice moves
     return $ PlayerResult (Just (depth, nodes)) m
 
 mcNegamaxMove       = mcNegamaxMove' negamaxMovesID
 mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMoveID
      
-mcHumanMove :: PlayerDebug
+mcHumanMove :: PlayerDebug (MiniChess RealWorld)
 mcHumanMove debugLn state = do 
     line <- readline "Your move: "
     case line of
       Nothing   -> do putStrLn "quit."; exitWith ExitSuccess
-      Just text -> catch (return $! PlayerResult Nothing $! humanMove miniChessMoves text state)
+      Just text -> catch       (do move <- stToIO $ humanMove state text
+                                   return $! PlayerResult Nothing move)
                          (\e -> do putStrLn (show (e :: IOError))
                                    mcHumanMove debugLn state)
                         
-mcIOMove :: PlayerDebug
+mcIOMove :: PlayerDebug (MiniChess RealWorld)
 mcIOMove debugLn state = do
     hFlush stdout
     line <- getLine
-    let move = fromMaybe line (stripPrefix "! " line)
-    return $! PlayerResult Nothing $! humanMove miniChessMoves move state
+    let text = fromMaybe line (stripPrefix "! " line)
+    move <- stToIO $ humanMove state text
+    return $! PlayerResult Nothing move
 
 data PlayerType = Human | IO | Random | Negamax | NegamaxPruned
     deriving (Show, Read, Eq, Enum)
 
-playerFor :: PlayerType -> PlayerDebug
+playerFor :: PlayerType -> PlayerDebug (MiniChess RealWorld)
 playerFor Human         = mcHumanMove
 playerFor IO            = mcIOMove
 playerFor Random        = mcRandomMove
@@ -76,35 +79,38 @@ playerFor NegamaxPruned = mcNegamaxPrunedMove
 
 --- Game loop
 
-play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> State -> IO State
-play whitePlayer blackPlayer logLn debug state@(State turn turnColor board)
-    = case (gameStatus state) of
-        status@(End _ _)     -> do putStrLn $ show state
-                                   if hasIO
-                                     then putStr "= "
-                                     else return ()
-                                   putStrLn $ explainStatus status
-                                   return state
+play :: (Game a) => PlayerType -> PlayerType -> (String -> IO()) -> Bool -> a RealWorld -> IO (a RealWorld)
+play whitePlayer blackPlayer logLn debug state = do
+    status <- stToIO $ gameStatus state
+    case status of
+        status@(End _) -> do gameStateText <- stToIO $ (showGameState . gameState) state
+                             putStrLn gameStateText
+                             if hasIO
+                               then putStr "= "
+                               else return ()
+                             putStrLn $ explainStatus state status
+                             return state
                                    
-        Continue state moves -> do let curPlayer = playerOfColor turnColor
-                                       oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
-                                   putStrLn $ show state
-                                   putStrLn $ show curPlayer ++ " moving..."
+        Continue moves -> do let curPlayer = playerOfColor turnColor
+                                 oppIsIO   = (playerOfColor (invertColor turnColor)) == IO
+                             
+                             putStrLn $ show state
+                             putStrLn $ show curPlayer ++ " moving..."
+                                 
+                             Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
                                    
-                                   Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
-                                   
-                                   debugLn $ "Player returned move"
-                                           ++ (maybe "" (\(depth,nodes)
-                                                          -> (" of depth " ++ (show depth)
-                                                           ++ " (" ++ (show nodes) ++ " nodes)"))
-                                              stats)
-                                           ++ " after " ++ (show dt)
-                                   logLn $ showMove' state m
-                                   when oppIsIO $ putStrLn $ "! " ++ showMove' state m
-                                   putStrLn ""
-                                   
-                                   let newstate = move m state
-                                   play whitePlayer blackPlayer logLn debug newstate
+                             debugLn $ "Player returned move"
+                                     ++ (maybe "" (\(depth,nodes)
+                                                   -> (" of depth " ++ (show depth)
+                                                    ++ " (" ++ (show nodes) ++ " nodes)"))
+                                        stats)
+                                     ++ " after " ++ (show dt)
+                             logLn $ showMove' state m
+                             when oppIsIO $ putStrLn $ "! " ++ showMove' state m
+                             putStrLn ""
+                             
+                             newstate <- doMove state m
+                             play whitePlayer blackPlayer logLn debug newstate
     where
         playerOfColor color
             = case color of

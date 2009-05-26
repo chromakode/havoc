@@ -17,6 +17,7 @@ class Game a where
 
     gameStatus  :: a s -> ST s GameStatus
     moveGen     :: a s -> ST s [Move]
+    validMove   :: a s -> Move -> ST s Bool
     doMove      :: a s -> Move -> ST s (a s, MoveDiff)
     undoMove    :: a s -> MoveDiff -> ST s (a s)
     evaluate    :: a s -> GameStatus -> ST s Int

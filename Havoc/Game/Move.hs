@@ -140,8 +140,8 @@ chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare,
                   White -> turn-1
                   Black -> turn
 
-validMove :: PieceMoveGen s -> GameState s -> Move -> ST s Bool
-validMove pieceMoves state@(GameState turn turnColor board) move@(fromSquare, _) = do
+chessValidMove :: PieceMoveGen s -> GameState s -> Move -> ST s Bool
+chessValidMove pieceMoves state@(GameState turn turnColor board) move@(fromSquare, _) = do
     movedPiece <- readArray board fromSquare
     moves <- moveGenSquare pieceMoves state fromSquare
     return $ canMove movedPiece moves
