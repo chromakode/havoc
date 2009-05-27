@@ -25,3 +25,5 @@ doUndoIO state m f = do
     result <- f (m, state)
     state <- stToIO $ undoMove state undo
     return result
+
+

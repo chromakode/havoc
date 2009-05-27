@@ -20,8 +20,8 @@ class Game a where
     validMove    :: a s -> Move -> ST s Bool
     doMove       :: a s -> Move -> ST s (a s, MoveDiff)
     undoMove     :: a s -> MoveDiff -> ST s (a s)
-    evaluate     :: a s -> GameStatus -> ST s Int
-    evaluateFast :: a s -> ST s Int
+    evaluateMove :: a s -> GameStatus -> MoveDiff -> ST s Int
+    score        :: a s -> ST s Int
 
     copyState    :: a s -> ST s (a s)
     gameState    :: a s -> GameState s
