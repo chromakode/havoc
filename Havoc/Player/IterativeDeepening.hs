@@ -24,8 +24,7 @@ iterativelyDeepen debugLn doSearch seconds state
             return (nodes, moves)
         
         run startTime out@(lastDepth, nodes, lastMoves)
-            = do curTime <- getCurrentTime
-                 let elapsed = diffUTCTime curTime startTime
+            = do elapsed <- getElapsed startTime
                  let remain = seconds - elapsed
                  let remainMicroseconds = floor (remain * 10^6)
                  let tryDepth = if even lastDepth && lastDepth > 0 && lastDepth < 6
@@ -37,9 +36,13 @@ iterativelyDeepen debugLn doSearch seconds state
                              case result of
                                Nothing -> do
                                    debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
-                                   debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ printSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
+                                   debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ showSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
                                    return out
                                Just (nodes', moves) -> do
                                    scoredMoves <- stToIO $ showScoredMoves state moves
-                                   debugLn $ "Depth " ++ show tryDepth ++ ": " ++ scoredMoves
+                                   elapsed <- getElapsed startTime
+                                   debugLn $ "Depth " ++ show tryDepth ++ " (" ++ showSeconds 2 elapsed ++ "s) : " ++ scoredMoves
                                    run startTime (tryDepth, nodes+nodes', moves)
+            where getElapsed startTime = do
+                      curTime <- getCurrentTime
+                      return $ diffUTCTime curTime startTime
