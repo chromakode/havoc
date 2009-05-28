@@ -30,14 +30,10 @@ naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
 naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
     return $ (score becomePiece - score movedPiece) + score takenPiece
     where
-        score Blank = 0
-        score (Piece color pieceType) = (colorScore color) * (typeScore pieceType)
-        
-        colorScore color = if color == turnColor then 1 else -1
-        
-        typeScore Pawn   = 100
-        typeScore Knight = 300
-        typeScore Bishop = 500
-        typeScore Rook   = 500
-        typeScore Queen  = 900
-        typeScore King   = 9000
+        score Blank                = 0        
+        score (Piece color Pawn)   = 100
+        score (Piece color Knight) = 300
+        score (Piece color Bishop) = 500
+        score (Piece color Rook)   = 500
+        score (Piece color Queen)  = 900
+        score (Piece color King)   = 9000
