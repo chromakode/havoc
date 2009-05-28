@@ -23,8 +23,6 @@ data GameState s = GameState { turn      :: Int
                              , board     :: Board s }
                  deriving Eq
 
-data EvaluatedState s = EvaluatedState Int (State s)
-
 instance Show Color where
     show White = "W"
     show Black = "B"

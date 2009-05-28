@@ -5,6 +5,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Havoc.Game.State
 import Havoc.Game.Move
+import Havoc.Game.MiniChess.Evaluate
 
 mcMoves :: GameState s -> Position -> ST s [Square]
 mcMoves state (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] state square
@@ -17,7 +18,7 @@ mcMoves state (square, Piece Black Pawn)   = (dirMoves Move [South] state square
 mcMoves state (square, Blank) = error "Move.mcMoves: moves for blank square requested"
 
 handlePromotion :: GameState s -> MoveDiff -> ST s (MoveDiff)
-handlePromotion state diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece, _) = do
+handlePromotion (GameState turn turnColor board) diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece _) = do
     let pieceColor = colorOf movedPiece
         isPawn = (pieceType movedPiece) == Pawn
 
@@ -30,8 +31,9 @@ handlePromotion state diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiec
                 return $ MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece
         else return diff
 
-mcMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
-mcMove state move@(fromSquare, toSquare) = do
+mcMove :: Evaluated (GameState s) -> Move -> ST s (Evaluated (GameState s), Evaluated MoveDiff)
+mcMove es@(Evaluated oldValue state) move@(fromSquare, toSquare) = do
     (newState, diff) <- chessDoMove state move
-    diff <- handlePromotion toSquare newState diff
-    return (newState, diff)
+    diff <- handlePromotion newState diff
+    newValue <- mcEvaluateMove es diff
+    return (Evaluated newValue newState, Evaluated oldValue diff)

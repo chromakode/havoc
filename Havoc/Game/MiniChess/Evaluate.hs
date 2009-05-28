@@ -7,22 +7,23 @@ import Havoc.Game.Move
 import Havoc.Game.State
 import Havoc.Player.DoUndo
 
-mcEvaluateMove :: EvaluatedState s -> GameStatus -> MoveDiff -> ST s Int
-mcEvaluateMove state status diff
-    = case status of
-        End (Win color) -> return $ gameOverScore color state
-        End Draw        -> return 0
-        Continue _      -> (liftM sum) . mapM (\f -> f state diff)) [ naiveMaterialScore ]
+mcEvaluateResult :: GameState s -> Result -> ST s Score
+mcEvaluateResult (GameState turn turnColor board) result
+    = case result of
+        Draw        -> return 0
+        Win color   -> let sign = if color == turnColor then 1 else -1 in
+                       return $ sign * max_eval_score
+                              + (-sign) * turn * 2 
 
-gameOverScore :: Color -> GameState s -> Int
-gameOverScore winColor state
-    = sign * max_eval_score
-    + (-sign) * turnNum * 2
-    where 
-        sign = if winColor == (turnColor state) then 1 else -1
-        turnNum = turn state
+mcEvaluateMove :: Evaluated (GameState s) -> MoveDiff -> ST s Score
+mcEvaluateMove (Evaluated oldValue state) diff = do
+    delta <- liftM sum $ mapM (\f -> f state diff) [ naiveMaterialScore ]
+    let sign = case turnColor state of
+                 White -> 1
+                 Black -> -1
+    return $ oldValue + (sign * delta)
 
-naiveMaterialScore :: GameState s -> MoveDiff -> ST s Int
+naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
 naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
     return $ (score becomePiece - score movedPiece) + score takenPiece
     where
