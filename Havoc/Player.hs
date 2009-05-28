@@ -29,6 +29,11 @@ timedIO action = do
 timedPlayer :: Player a -> a -> IO (Timed PlayerResult)
 timedPlayer player state = timedIO (player state)
 
+showMoves :: (Game a) => a s -> [Move] -> ST s String
+showMoves state moves = do
+    smoves <- mapM (showMove' state) moves
+    return $ intercalate " | " smoves
+
 showScoredMoves :: (Game a) => a s -> [(Int, Move)] -> ST s String
 showScoredMoves state moves = do
     scores <- mapM (\(s,m) -> do
