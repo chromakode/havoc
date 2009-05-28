@@ -15,12 +15,15 @@ mcEvaluateResult (GameState turn turnColor board) result
                        return $ sign * max_eval_score
                               + (-sign) * turn * 2 
 
-mcEvaluateMove :: Evaluated (GameState s) -> MoveDiff -> ST s Score
-mcEvaluateMove (Evaluated oldValue state) diff = do
+lastColorSign :: Color -> Int
+lastColorSign color = case invertColor color of
+                    White -> 1
+                    Black -> -1
+
+mcEvaluateMove :: Score -> GameState s -> MoveDiff -> ST s Score
+mcEvaluateMove oldValue state diff = do
     delta <- liftM sum $ mapM (\f -> f state diff) [ naiveMaterialScore ]
-    let sign = case turnColor state of
-                 White -> 1
-                 Black -> -1
+    let sign = lastColorSign (turnColor state)
     return $ oldValue + (sign * delta)
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
@@ -37,4 +40,4 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
         typeScore Bishop = 500
         typeScore Rook   = 500
         typeScore Queen  = 900
-        typeScore King   = 0
+        typeScore King   = 9000

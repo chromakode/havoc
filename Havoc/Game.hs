@@ -21,8 +21,7 @@ class Game a where
     doMove         :: a s -> Move -> ST s (a s, Evaluated MoveDiff)
     undoMove       :: a s -> Evaluated MoveDiff -> ST s (a s)
     
-    evaluateMove   :: a s -> MoveDiff -> ST s Int
-    evaluateResult :: a s -> Result -> ST s Int
+    evaluateResult :: a s -> Result -> ST s Score
     score          :: a s -> ST s Int
 
     copyState      :: a s -> ST s (a s)

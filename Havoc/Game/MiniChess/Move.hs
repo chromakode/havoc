@@ -35,5 +35,5 @@ mcMove :: Evaluated (GameState s) -> Move -> ST s (Evaluated (GameState s), Eval
 mcMove es@(Evaluated oldValue state) move@(fromSquare, toSquare) = do
     (newState, diff) <- chessDoMove state move
     diff <- handlePromotion newState diff
-    newValue <- mcEvaluateMove es diff
+    newValue <- mcEvaluateMove oldValue newState diff
     return (Evaluated newValue newState, Evaluated oldValue diff)

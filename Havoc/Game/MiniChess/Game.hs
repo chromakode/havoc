@@ -44,7 +44,6 @@ instance Game MiniChess where
     validMove      (MiniChess    (Evaluated v s))       = chessValidMove mcMoves s
     doMove         (MiniChess es@(Evaluated v s)) move  = mcMove es move >>= (\(es', d) -> return (MiniChess es', d))
     undoMove       (MiniChess es@(Evaluated v s)) ediff = (chessUndoMoveEval es ediff) >>= return . MiniChess
-    evaluateMove   (MiniChess es@(Evaluated v s))       = mcEvaluateMove es
     evaluateResult (MiniChess es@(Evaluated v s))       = mcEvaluateResult s
     score          (MiniChess    (Evaluated v s))       = case turnColor s of
                                                             White -> return v

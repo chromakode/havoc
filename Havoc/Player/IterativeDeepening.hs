@@ -31,18 +31,22 @@ iterativelyDeepen debugLn doSearch seconds state
                                   then lastDepth+2 -- Skip to avoid horizon effect on low odd depths
                                   else lastDepth+1
                  if remainMicroseconds < 0
-                     then return out
+                     then end tryDepth nodes elapsed
                      else do result <- timeout remainMicroseconds (runDepth tryDepth)
                              case result of
                                Nothing -> do
-                                   debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
-                                   debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ showSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
-                                   return out
+                                   end tryDepth nodes elapsed    
                                Just (nodes', moves) -> do
                                    scoredMoves <- stToIO $ showScoredMoves state moves
                                    elapsed <- getElapsed startTime
                                    debugLn $ "Depth " ++ show tryDepth ++ " (" ++ showSeconds 2 elapsed ++ "s) : " ++ scoredMoves
                                    run startTime (tryDepth, nodes+nodes', moves)
-            where getElapsed startTime = do
-                      curTime <- getCurrentTime
-                      return $ diffUTCTime curTime startTime
+            where 
+                getElapsed startTime = do
+                    curTime <- getCurrentTime
+                    return $ diffUTCTime curTime startTime
+                    
+                end tryDepth nodes elapsed = do
+                    debugLn $ "Depth " ++ show tryDepth ++ ": interrupted"
+                    debugLn $ "Searched " ++ show nodes ++ " nodes in " ++ show elapsed ++ " seconds (" ++ showSeconds 4 ((fromIntegral nodes) / elapsed) ++ " nodes/second)"
+                    return out
