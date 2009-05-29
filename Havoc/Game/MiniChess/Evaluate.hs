@@ -7,13 +7,15 @@ import Havoc.Game.Move
 import Havoc.Game.State
 import Havoc.Player.DoUndo
 
+winScore :: GameState s -> Score
+winScore (GameState turn turnColor board) = max_eval_score - (turn * 2)
+
 mcEvaluateResult :: GameState s -> Result -> ST s Score
-mcEvaluateResult (GameState turn turnColor board) result
+mcEvaluateResult state@(GameState turn turnColor board) result
     = case result of
         Draw        -> return 0
         Win color   -> let sign = if color == turnColor then 1 else -1 in
-                       return $ sign * max_eval_score
-                              + (-sign) * turn * 2 
+                       return $ sign * (winScore state)
 
 lastColorSign :: Color -> Int
 lastColorSign color = case invertColor color of
@@ -22,10 +24,10 @@ lastColorSign color = case invertColor color of
 
 mcEvaluateMove :: Score -> GameState s -> MoveDiff -> ST s Score
 mcEvaluateMove oldValue state diff@(MoveDiff movedPiece _ takenPiece _) = do
+    let sign = lastColorSign (turnColor state)
     if takenPiece /= Blank && (pieceType takenPiece) == King
-      then mcEvaluateResult state $ Win (colorOf movedPiece)
+      then return $ sign * (winScore state)
       else do delta <- liftM sum $ mapM (\f -> f state diff) [ naiveMaterialScore ]
-              let sign = lastColorSign (turnColor state)
               return $ oldValue + (sign * delta)
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
