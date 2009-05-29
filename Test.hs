@@ -10,12 +10,12 @@ import Havoc.Player.DoUndo
 import Havoc.Player.NegamaxPruned
 
 startBoardText =
-    "k....\n\
-    \....p\n\
-    \...P.\n\
+    "kqbnr\n\
+    \p.ppp\n\
     \.....\n\
-    \p....\n\
-    \.P..K\n"
+    \.P.Q.\n\
+    \PP.PP\n\
+    \RNB.K\n"
 
 testMoveGen = do
     state <- stToIO $ readBoard startBoardText >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 2 Black board)
@@ -27,7 +27,9 @@ testMoveGen = do
     sortedMoves <- stToIO $ shuffleAndSortStatuses stdGen state moves
     (stToIO $ showMoves state sortedMoves) >>= putStrLn
     
-    (nodes, scoredMoves) <- negamaxPrunedMove state 1
+    putStrLn "---"
+    
+    (depth, nodes, scoredMoves) <- negamaxPrunedMoveID putStrLn 7 state
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
     
     
