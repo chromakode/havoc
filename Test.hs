@@ -29,7 +29,7 @@ testMoveGen = do
     
     putStrLn "---"
     
-    (depth, nodes, scoredMoves) <- negamaxPrunedMoveID putStrLn 7 state
+    (depth, nodes, scoredMoves) <- negamaxPrunedMovesID putStrLn 7 state
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
     
     

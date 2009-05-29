@@ -47,7 +47,7 @@ mcNegamaxMove' mover debugLn state = do
     return $ PlayerResult (Just (depth, nodes)) m
 
 mcNegamaxMove       = mcNegamaxMove' negamaxMovesID
-mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMoveID
+mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMovesID
      
 mcHumanMove :: PlayerDebug (MiniChess RealWorld)
 mcHumanMove debugLn state = do 

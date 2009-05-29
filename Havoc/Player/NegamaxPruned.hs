@@ -52,8 +52,8 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
                 -- This is a reasonable move. Keep searching.
                 else runPrune moves localBest' ourBest'
                 
-negamaxPrunedMove :: (Game a) => a RealWorld -> Int -> IO (Int, [(Score, Move)])
-negamaxPrunedMove state depth = do
+negamaxPrunedMoves :: (Game a) => a RealWorld -> Int -> IO (Int, [(Score, Move)])
+negamaxPrunedMoves state depth = do
     if depth == 0 then return (0, [])
       else do status <- stToIO $ gameStatus state
               case status of
@@ -79,6 +79,6 @@ negamaxPrunedMove state depth = do
                                LT -> bestMoves
             runTopPrune moves nodeCount localBest' ourBest' bestMoves'
 
-negamaxPrunedMoveID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
-negamaxPrunedMoveID debugLn seconds state = iterativelyDeepen debugLn negamaxPrunedMove seconds state
+negamaxPrunedMovesID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
+negamaxPrunedMovesID debugLn seconds state = iterativelyDeepen debugLn negamaxPrunedMoves seconds state
 
