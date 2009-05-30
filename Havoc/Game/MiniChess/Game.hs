@@ -26,7 +26,7 @@ instance Game MiniChess where
     gameStatus mcState@(MiniChess (Evaluated value state)) = do
         ps <- pieces (board state)
         
-        let kings = filter ((King==) . pieceType) ps
+        let kings = filter (('K'==) . pieceType) ps
             isDeadKing = (length kings) == 1
             remainingKingColor = (colorOf . head) kings
 

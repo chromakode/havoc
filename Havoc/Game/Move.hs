@@ -116,14 +116,14 @@ chessMoveGen pieceMoves state@(GameState turn turnColor board) = do
     pos <- positions board
     ((liftM concat) . sequence) 
         [moveGenPosition pieceMoves state position
-        | position@(square, Piece pieceColor _) <- pos
-        , pieceColor == turnColor ]
+        | position@(square, piece) <- pos
+        , (colorOf piece) == turnColor ]
 
 chessDoMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
 chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do 
     movedPiece <- readArray board fromSquare
     takenPiece <- readArray board toSquare
-    writeArray board fromSquare Blank
+    writeArray board fromSquare '.'
     writeArray board toSquare movedPiece
     let newState = GameState turn' (invertColor turnColor) board
         undo     = MoveDiff movedPiece move takenPiece movedPiece
@@ -155,7 +155,7 @@ chessValidMove pieceMoves state@(GameState turn turnColor board) move@(fromSquar
     return $ canMove movedPiece moves
     where
         canMove movedPiece moves
-            | movedPiece == Blank     = error ("Move.validMove: no piece at position " ++ (show fromSquare))
+            | movedPiece == '.'       = error ("Move.validMove: no piece at position " ++ (show fromSquare))
             | turnColor /= movedColor = error "Move.validMove: piece does not belong to color on move"
             | not (move `elem` moves) = error "Move.validMove: invalid move for piece"
             | otherwise               = True
