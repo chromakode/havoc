@@ -13,18 +13,19 @@ data Result = Win Color
             deriving (Show, Eq)
             
 class Game a where
-    startState   :: ST s (a s)
+    startState     :: ST s (a s)
 
-    gameStatus   :: a s -> ST s GameStatus
-    moveGen      :: a s -> ST s [Move]
-    validMove    :: a s -> Move -> ST s Bool
-    doMove       :: a s -> Move -> ST s (a s, MoveDiff)
-    undoMove     :: a s -> MoveDiff -> ST s (a s)
-    evaluate     :: a s -> GameStatus -> ST s Int
-    evaluateFast :: a s -> ST s Int
+    gameStatus     :: a s -> ST s GameStatus
+    moveGen        :: a s -> ST s [Move]
+    validMove      :: a s -> Move -> ST s Bool
+    doMove         :: a s -> Move -> ST s (a s, Evaluated MoveDiff)
+    undoMove       :: a s -> Evaluated MoveDiff -> ST s (a s)
+    
+    evaluateResult :: a s -> Result -> ST s Score
+    score          :: a s -> ST s Int
 
-    copyState    :: a s -> ST s (a s)
-    gameState    :: a s -> GameState s
+    copyState      :: a s -> ST s (a s)
+    gameState      :: a s -> GameState s
 
-max_eval_score :: Int
+max_eval_score :: Score
 max_eval_score = 9999

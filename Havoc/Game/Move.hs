@@ -10,8 +10,11 @@ import Havoc.Game.State
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
 data MoveType = Move | Capture | MoveCapture
-data MoveDiff = MoveDiff Piece Move Piece deriving Show
+data MoveDiff = MoveDiff Piece Move Piece Piece deriving Show
 type PieceMoveGen s = GameState s -> Position -> ST s [Square]
+
+type Score = Int
+data Evaluated a = Evaluated Score a
 
 dirMove :: Direction -> Square -> Square
 dirMove North     (i,j) = (i-1,j)
@@ -123,7 +126,7 @@ chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do
     writeArray board fromSquare Blank
     writeArray board toSquare movedPiece
     let newState = GameState turn' (invertColor turnColor) board
-        undo     = MoveDiff movedPiece move takenPiece
+        undo     = MoveDiff movedPiece move takenPiece movedPiece
     return (newState, undo)
     where
         turn' = case turnColor of
@@ -131,7 +134,7 @@ chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do
                   Black -> turn+1
 
 chessUndoMove :: GameState s -> MoveDiff -> ST s (GameState s)
-chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece) = do 
+chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece _) = do 
     writeArray board fromSquare movedPiece
     writeArray board toSquare takenPiece
     return $ GameState turn' (invertColor turnColor) board
@@ -139,6 +142,11 @@ chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare,
         turn' = case turnColor of
                   White -> turn-1
                   Black -> turn
+                  
+chessUndoMoveEval :: Evaluated (GameState s) -> Evaluated MoveDiff -> ST s (Evaluated (GameState s))
+chessUndoMoveEval (Evaluated _ state) (Evaluated oldValue diff) = do 
+    oldState <- chessUndoMove state diff
+    return $ Evaluated oldValue oldState
 
 chessValidMove :: PieceMoveGen s -> GameState s -> Move -> ST s Bool
 chessValidMove pieceMoves state@(GameState turn turnColor board) move@(fromSquare, _) = do

@@ -19,11 +19,11 @@ mcStartBoard = readBoard mcStartBoardText
             \PPPPP\n\
             \RNBQK\n"
 
-newtype MiniChess s = MiniChess (GameState s)
+newtype MiniChess s = MiniChess (Evaluated (GameState s))
 instance Game MiniChess where
-    startState = mcStartBoard >>= (\board -> return $ MiniChess (GameState 1 White board))
+    startState = mcStartBoard >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 1 White board)
 
-    gameStatus mcState@(MiniChess state) = do
+    gameStatus mcState@(MiniChess (Evaluated value state)) = do
         ps <- pieces (board state)
         
         let kings = filter ((King==) . pieceType) ps
@@ -40,12 +40,14 @@ instance Game MiniChess where
                     then return $ End Draw
                     else return $ Continue moves
 
-    moveGen (MiniChess state)       = chessMoveGen mcMoves state
-    validMove (MiniChess state)     = chessValidMove mcMoves state
-    doMove (MiniChess state) move   = mcMove state move >>= (\(s, d) -> return (MiniChess s, d))
-    undoMove (MiniChess state) diff = (chessUndoMove state diff) >>= return . MiniChess
-    evaluate (MiniChess state)      = mcEvaluate state
-    evaluateFast (MiniChess state)  = mcEvaluateState state
+    moveGen        (MiniChess    (Evaluated v s))       = chessMoveGen mcMoves s
+    validMove      (MiniChess    (Evaluated v s))       = chessValidMove mcMoves s
+    doMove         (MiniChess es@(Evaluated v s)) move  = mcMove es move >>= (\(es', d) -> return (MiniChess es', d))
+    undoMove       (MiniChess es@(Evaluated v s)) ediff = (chessUndoMoveEval es ediff) >>= return . MiniChess
+    evaluateResult (MiniChess es@(Evaluated v s))       = mcEvaluateResult s
+    score          (MiniChess    (Evaluated v s))       = case turnColor s of
+                                                            White -> return v
+                                                            Black -> return (-v)
     
-    copyState (MiniChess state)     = copyGameState state >>= return . MiniChess
-    gameState (MiniChess state)     = state
+    copyState      (MiniChess    (Evaluated v s))       = copyGameState s >>= (\s' -> return $ MiniChess $ Evaluated v $ s')
+    gameState      (MiniChess    (Evaluated v s))       = s

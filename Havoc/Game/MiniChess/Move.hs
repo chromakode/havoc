@@ -5,6 +5,7 @@ import Control.Monad.ST
 import Data.Array.ST
 import Havoc.Game.State
 import Havoc.Game.Move
+import Havoc.Game.MiniChess.Evaluate
 
 mcMoves :: GameState s -> Position -> ST s [Square]
 mcMoves state (square, Piece _     King)   = dirMoves MoveCapture [North .. Northwest] state square
@@ -16,21 +17,23 @@ mcMoves state (square, Piece White Pawn)   = (dirMoves Move [North] state square
 mcMoves state (square, Piece Black Pawn)   = (dirMoves Move [South] state square) +..+ (dirMoves Capture [Southwest, Southeast] state square)
 mcMoves state (square, Blank) = error "Move.mcMoves: moves for blank square requested"
 
-handlePromotion :: Square -> GameState s -> ST s ()
-handlePromotion toSquare state@(GameState turn turnColor board) = do
-    piece <- readArray board toSquare
-    let pieceColor = colorOf piece
-        isPawn = (pieceType piece) == Pawn
+handlePromotion :: GameState s -> MoveDiff -> ST s (MoveDiff)
+handlePromotion (GameState turn turnColor board) diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece _) = do
+    let pieceColor = colorOf movedPiece
+        isPawn = (pieceType movedPiece) == Pawn
 
     edge <- endRow pieceColor board
     let isEndRow = (fst toSquare) == edge
 
     if isPawn && isEndRow
-        then writeArray board toSquare (Piece pieceColor Queen)
-        else return ()
+        then do let becomePiece = (Piece pieceColor Queen)
+                writeArray board toSquare becomePiece
+                return $ MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece
+        else return diff
 
-mcMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
-mcMove state move@(fromSquare, toSquare) = do
+mcMove :: Evaluated (GameState s) -> Move -> ST s (Evaluated (GameState s), Evaluated MoveDiff)
+mcMove es@(Evaluated oldValue state) move@(fromSquare, toSquare) = do
     (newState, diff) <- chessDoMove state move
-    handlePromotion toSquare newState
-    return (newState, diff)
+    diff <- handlePromotion newState diff
+    newValue <- mcEvaluateMove oldValue newState diff
+    return (Evaluated newValue newState, Evaluated oldValue diff)
