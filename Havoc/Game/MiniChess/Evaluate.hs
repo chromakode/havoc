@@ -8,10 +8,10 @@ import Havoc.Game.State
 import Havoc.Player.DoUndo
 
 winScore :: GameState s -> Score
-winScore (GameState turn turnColor board) = max_eval_score - (turn * 2)
+winScore (GameState turn turnColor board pieceMap) = max_eval_score - (turn * 2)
 
 mcEvaluateResult :: GameState s -> Result -> ST s Score
-mcEvaluateResult state@(GameState turn turnColor board) result
+mcEvaluateResult state@(GameState turn turnColor board pieceMap) result
     = case result of
         Draw        -> return 0
         Win color   -> let sign = if color == turnColor then 1 else -1 in
@@ -31,13 +31,13 @@ mcEvaluateMove oldValue state diff@(MoveDiff movedPiece _ takenPiece _) = do
               return $ oldValue + (sign * delta)
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
-naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
+naiveMaterialScore (GameState turn turnColor board pieceMap) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
     return $ (score becomePiece - score movedPiece) + score takenPiece
     where
-        score Blank                = 0        
-        score (Piece color Pawn)   = 100
-        score (Piece color Knight) = 300
-        score (Piece color Bishop) = 500
-        score (Piece color Rook)   = 500
-        score (Piece color Queen)  = 900
-        score (Piece color King)   = 0
+        score Blank                  = 0        
+        score (Piece _ color Pawn)   = 100
+        score (Piece _ color Knight) = 300
+        score (Piece _ color Bishop) = 500
+        score (Piece _ color Rook)   = 500
+        score (Piece _ color Queen)  = 900
+        score (Piece _ color King)   = 0

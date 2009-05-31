@@ -8,7 +8,7 @@ import Havoc.Game.Move
 import Havoc.Game.MiniChess.Evaluate
 import Havoc.Game.MiniChess.Move
 
-mcStartBoard :: ST s (Board s)
+mcStartBoard :: ST s (Board s, PieceMap)
 mcStartBoard = readBoard mcStartBoardText
     where
         mcStartBoardText = 
@@ -22,10 +22,10 @@ mcStartBoard = readBoard mcStartBoardText
 newtype MiniChess s = MiniChess (Evaluated (GameState s))
 instance Game MiniChess where
     {-# SPECIALIZE instance Game MiniChess #-}
-    startState = mcStartBoard >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 1 White board)
+    startState = mcStartBoard >>= (\(board, pieceMap) -> return $ MiniChess $ Evaluated 0 $ GameState 1 White board pieceMap)
 
     gameStatus mcState@(MiniChess (Evaluated value state)) = do
-        ps <- pieces (board state)
+        let ps = pieces state
         
         let kings = filter ((King==) . pieceType) ps
             isDeadKing = (length kings) == 1

@@ -4,15 +4,19 @@ import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Char
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.List
 import Data.Maybe
 
 data Color = White | Black deriving Eq
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
-data Piece = Piece { colorOf   :: Color
+data Piece = Piece { pieceId   :: Int
+                   , colorOf   :: Color
                    , pieceType :: PieceType }
            | Blank
            deriving Eq
+type PieceMap = IntMap Position
 type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board s = STArray s Square Piece
@@ -20,7 +24,8 @@ type BoardBounds = (Square, Square)
 
 data GameState s = GameState { turn      :: Int
                              , turnColor :: Color
-                             , board     :: Board s }
+                             , board     :: Board s
+                             , pieceMap  :: PieceMap }
                  deriving Eq
 
 instance Show Color where
@@ -63,30 +68,33 @@ instance Read PieceType where
     
 instance Show Piece where
     show Blank = "."
-    show (Piece color piece)
+    show (Piece _ color piece)
         = map colorCase (show piece)
         where colorCase = case color of
                             White -> toUpper
                             Black -> toLower
 
-instance Read Piece where
-    readsPrec p s = [(piece, t') | (s', t) <- lex s, (piece, t') <- pieceOf s']
-        where
-            pieceOf "." = [(Blank, "")]
-            pieceOf s   = [(Piece (colorOf (head s)) piecetype, t)
-                              | (piecetype, t) <- readsPrec p (map toUpper s)]
-            colorOf c
-                | isUpper c  = White
-                | otherwise  = Black
+readPiece :: Char -> Int -> Piece
+readPiece c id = pieceOf c
+    where
+        pieceOf '.' = Blank
+        pieceOf c   = Piece id (colorOf c) (read [(toUpper c)])
 
-readBoard :: String -> ST s (Board s)
+        colorOf ch
+            | isUpper ch = White
+            | otherwise  = Black
+
+readBoard :: String -> ST s (Board s, PieceMap)
 readBoard text = do
-    newListArray ((0,0),(i-1,j-1)) pieces
+    board <- newListArray ((0,0),(i-1,j-1)) pieces
+    positions <- getAssocs board
+    let pieceMap = IntMap.fromList [(id, p) | p@(_, Piece id _ _) <- filter (\(s,p) -> p /= Blank) positions]
+    return (board, pieceMap)
     where
         ls = lines (dropWhile isSpace text)
         i = length ls
         j = length (head ls)
-        pieces = map (read . (:[])) (concat ls)
+        pieces = [readPiece c id | (id, c) <- zip [0..] (concat ls)]
 
 showBoard :: Board s -> ST s String
 showBoard board = do
@@ -107,19 +115,15 @@ isColor board color square = do
     return $ (colorOf piece) == color
 
 isTurnColor :: GameState s -> Square -> ST s Bool
-isTurnColor (GameState turn turnColor board) square = isColor board turnColor square
+isTurnColor (GameState turn turnColor board pieceMap) square = isColor board turnColor square
 
-pieces :: Board s -> ST s [Piece]
+pieces :: GameState s -> [Piece]
 {-# INLINE pieces #-}
-pieces board = do
-    elems <- getElems board
-    return $ filter (/=Blank) elems
+pieces state = map snd (positions state)
 
-positions :: Board s -> ST s [Position]
+positions :: GameState s -> [Position]
 {-# INLINE positions #-}
-positions board = do
-    assocs <- getAssocs board
-    return $ filter (\(s,p) -> p /= Blank) assocs
+positions state = IntMap.elems (pieceMap state)
 
 endRow :: Color -> Board s -> ST s Int
 {-# INLINE endRow #-}
@@ -130,7 +134,7 @@ endRow color board = do
                Black -> ui        
 
 showGameState :: GameState s -> ST s String
-showGameState (GameState turn turnColor board) = do
+showGameState (GameState turn turnColor board pieceMap) = do
     boardText <- showBoard board
     return $ show turn ++ " " ++ show turnColor ++ "\n"
                   ++ boardText
@@ -139,8 +143,8 @@ readGameState :: String -> ST s (GameState s)
 readGameState s = do
     let (turn, t)      = head $ readsPrec 0 s
         (turnColor, u) = head $ readsPrec 0 t
-    board <- readBoard u
-    return $ GameState turn turnColor board
+    (board, pieces) <- readBoard u
+    return $ GameState turn turnColor board pieces
     
 copyBoard :: Board s -> ST s (Board s)
 copyBoard board = do
@@ -149,6 +153,6 @@ copyBoard board = do
     newListArray bounds elems
     
 copyGameState :: GameState s -> ST s (GameState s)
-copyGameState (GameState turn turnColor board) = do
+copyGameState (GameState turn turnColor board pieceMap) = do
     board' <- copyBoard board
-    return $ GameState turn turnColor board'
+    return $ GameState turn turnColor board' pieceMap

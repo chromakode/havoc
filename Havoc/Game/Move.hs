@@ -4,6 +4,8 @@ import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST
 import Data.Ix (inRange)
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.List (union)
 import Havoc.Game.State
 
@@ -31,7 +33,7 @@ canCapture state = (liftM not) . (isTurnColor state)
 
 validPointMove :: MoveType -> GameState s -> Square -> ST s Bool
 {-# INLINE validPointMove #-}
-validPointMove capture state@(GameState turn turnColor board) square = do
+validPointMove capture state@(GameState turn turnColor board pieceMap) square = do
     bounds <- getBounds board
     if (inRange bounds square)
       then case capture of
@@ -52,7 +54,7 @@ dirMoves capture directions state square
 
 lineMove :: MoveType -> Direction -> GameState s -> Square -> ST s [Square]
 {-# INLINE lineMove #-}
-lineMove capture direction state@(GameState turn turnColor board) square = do
+lineMove capture direction state@(GameState turn turnColor board pieceMap) square = do
     bounds <- getBounds board
     untilBlocked state
         . takeWhile (inRange bounds)
@@ -61,7 +63,7 @@ lineMove capture direction state@(GameState turn turnColor board) square = do
     where
         untilBlocked :: GameState s -> [Square] -> ST s [Square]
         untilBlocked state [] = return []
-        untilBlocked state@(GameState turn turnColor board) (s:squares) = case capture of
+        untilBlocked state@(GameState turn turnColor board pieceMap) (s:squares) = case capture of
             Move -> do
                 blank <- isBlank board s
                 if blank
@@ -109,26 +111,31 @@ moveGenPosition pieceMoves state position@(fromSquare, _) = do
     return $ map ((,) fromSquare) moves
 
 moveGenSquare :: PieceMoveGen s -> GameState s -> Square -> ST s [Move]
-moveGenSquare pieceMoves state@(GameState turn turnColor board) fromSquare = do
+moveGenSquare pieceMoves state@(GameState turn turnColor board pieceMap) fromSquare = do
     piece <- readArray board fromSquare
     moveGenPosition pieceMoves state (fromSquare, piece)
 
 chessMoveGen :: PieceMoveGen s -> GameState s -> ST s [Move]
-chessMoveGen pieceMoves state@(GameState turn turnColor board) = do
-    pos <- positions board
+chessMoveGen pieceMoves state@(GameState turn turnColor board pieceMap) = do
+    let pos = positions state
     ((liftM concat) . sequence) 
         [moveGenPosition pieceMoves state position
-        | position@(square, Piece pieceColor _) <- pos
+        | position@(square, Piece _ pieceColor _) <- pos
         , pieceColor == turnColor ]
 
 chessDoMove :: GameState s -> Move -> ST s (GameState s, MoveDiff)
-chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do 
+chessDoMove (GameState turn turnColor board pieceMap) move@(fromSquare, toSquare) = do 
     movedPiece <- readArray board fromSquare
     takenPiece <- readArray board toSquare
     writeArray board fromSquare Blank
     writeArray board toSquare movedPiece
-    let newState = GameState turn' (invertColor turnColor) board
-        undo     = MoveDiff movedPiece move takenPiece movedPiece
+    let undo      = MoveDiff movedPiece move takenPiece movedPiece
+        pieceMap' = IntMap.insert (pieceId movedPiece) (toSquare, movedPiece)
+                    (if takenPiece /= Blank
+                       then IntMap.delete (pieceId takenPiece) pieceMap
+                       else pieceMap)
+        newState  = GameState turn' (invertColor turnColor) board pieceMap'
+                      
     return (newState, undo)
     where
         turn' = case turnColor of
@@ -136,10 +143,14 @@ chessDoMove (GameState turn turnColor board) move@(fromSquare, toSquare) = do
                   Black -> turn+1
 
 chessUndoMove :: GameState s -> MoveDiff -> ST s (GameState s)
-chessUndoMove (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece _) = do 
+chessUndoMove (GameState turn turnColor board pieceMap) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece _) = do 
     writeArray board fromSquare movedPiece
     writeArray board toSquare takenPiece
-    return $ GameState turn' (invertColor turnColor) board
+    let pieceMap' = IntMap.insert (pieceId movedPiece) (fromSquare, movedPiece)
+                    (if takenPiece /= Blank
+                       then IntMap.insert (pieceId takenPiece) (toSquare, takenPiece) pieceMap
+                       else pieceMap)
+    return $ GameState turn' (invertColor turnColor) board pieceMap'
     where
         turn' = case turnColor of
                   White -> turn-1
@@ -151,7 +162,7 @@ chessUndoMoveEval (Evaluated _ state) (Evaluated oldValue diff) = do
     return $ Evaluated oldValue oldState
 
 chessValidMove :: PieceMoveGen s -> GameState s -> Move -> ST s Bool
-chessValidMove pieceMoves state@(GameState turn turnColor board) move@(fromSquare, _) = do
+chessValidMove pieceMoves state@(GameState turn turnColor board pieceMap) move@(fromSquare, _) = do
     movedPiece <- readArray board fromSquare
     moves <- moveGenSquare pieceMoves state fromSquare
     return $ canMove movedPiece moves
