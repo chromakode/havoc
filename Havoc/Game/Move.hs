@@ -30,6 +30,7 @@ canCapture :: GameState s -> Square -> ST s Bool
 canCapture state = (liftM not) . (isTurnColor state)
 
 validPointMove :: MoveType -> GameState s -> Square -> ST s Bool
+{-# INLINE validPointMove #-}
 validPointMove capture state@(GameState turn turnColor board) square = do
     bounds <- getBounds board
     if (inRange bounds square)
@@ -50,6 +51,7 @@ dirMoves capture directions state square
     $ map (`dirMove` square) directions
 
 lineMove :: MoveType -> Direction -> GameState s -> Square -> ST s [Square]
+{-# INLINE lineMove #-}
 lineMove capture direction state@(GameState turn turnColor board) square = do
     bounds <- getBounds board
     untilBlocked state

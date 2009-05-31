@@ -21,6 +21,7 @@ mcStartBoard = readBoard mcStartBoardText
 
 newtype MiniChess s = MiniChess (Evaluated (GameState s))
 instance Game MiniChess where
+    {-# SPECIALIZE instance Game MiniChess #-}
     startState = mcStartBoard >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 1 White board)
 
     gameStatus mcState@(MiniChess (Evaluated value state)) = do

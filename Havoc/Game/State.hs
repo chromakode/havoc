@@ -96,6 +96,7 @@ showBoard board = do
     return $ unlines $ (map . concatMap) show pieces
 
 isBlank :: Board s -> Square -> ST s Bool
+{-# INLINE isBlank #-}
 isBlank board square = do
     piece <- readArray board square
     return $ piece == Blank
@@ -109,16 +110,19 @@ isTurnColor :: GameState s -> Square -> ST s Bool
 isTurnColor (GameState turn turnColor board) square = isColor board turnColor square
 
 pieces :: Board s -> ST s [Piece]
+{-# INLINE pieces #-}
 pieces board = do
     elems <- getElems board
     return $ filter (/=Blank) elems
 
 positions :: Board s -> ST s [Position]
+{-# INLINE positions #-}
 positions board = do
     assocs <- getAssocs board
     return $ filter (\(s,p) -> p /= Blank) assocs
 
 endRow :: Color -> Board s -> ST s Int
+{-# INLINE endRow #-}
 endRow color board = do
     ((li,lj),(ui,uj)) <- getBounds board
     return $ case color of
