@@ -97,13 +97,12 @@ positionalScore state@(GameState turn turnColor board) (MoveDiff movedPiece (fro
         positionScore          (_     , Blank) = return 0
         positionScore position@(square, piece) = do
             classScore <- case piece of 
-                Piece White Pawn -> liftM ((25*) . length) $ dirMoves (IsPiece piece) [Southeast, Southwest] state square
-                Piece Black Pawn -> liftM ((25*) . length) $ dirMoves (IsPiece piece) [Northeast, Northwest] state square
-                otherwise        -> return 0
+                Piece _ Pawn   -> liftM ((10*) . length) $ dirMoves (IsPiece piece) [Northeast, Northwest, Southeast, Southwest] state square
+                otherwise      -> return 0
             
-            movesScore <- moveGenScore position
+            --movesScore <- moveGenScore position
             
-            return $ movesScore
+            return $ classScore
         
         moveGenScore position@(square, piece) = do
             moves <- moveGenPosition mcMovesXray state position
