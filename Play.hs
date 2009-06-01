@@ -24,7 +24,7 @@ import Havoc.Player.Negamax
 import Havoc.Player.NegamaxPruned
 import Havoc.UI
 import Havoc.Utils
-import Havoc.Game.MiniChess.Game
+import Havoc.Game.MiniChess
 
 -- Player definitions
 

@@ -9,7 +9,7 @@ import Havoc.Game.State
 
 data Direction = North | Northeast | East | Southeast | South | Southwest | West | Northwest deriving (Show, Eq, Enum)
 type Move = (Square, Square)
-data MoveType = Move | Capture | MoveCapture
+data MoveType = Move | Capture | MoveCapture | XRay | Friendly | IsPiece Piece
 data MoveDiff = MoveDiff Piece Move Piece Piece deriving Show
 type PieceMoveGen s = GameState s -> Position -> ST s [Square]
 
@@ -29,17 +29,24 @@ dirMove Northwest (i,j) = (i-1,j-1)
 canCapture :: GameState s -> Square -> ST s Bool
 canCapture state = (liftM not) . (isTurnColor state)
 
+isFriendly :: GameState s -> Square -> ST s Bool
+isFriendly state = isTurnColor state
+
 validPointMove :: MoveType -> GameState s -> Square -> ST s Bool
 {-# INLINE validPointMove #-}
 validPointMove capture state@(GameState turn turnColor board) square = do
     bounds <- getBounds board
     if (inRange bounds square)
       then case capture of
+             XRay        -> return True
              Move        -> isBlank board square
-             Capture     -> (liftM and) $ sequence [ ((liftM not) . isBlank board) square
+             Capture     -> liftM and $ sequence [ ((liftM not) . isBlank board) square
                                                    , canCapture state square]
-             MoveCapture -> (liftM or)  $ sequence [ isBlank board square
+             MoveCapture -> liftM or  $ sequence [ isBlank board square
                                                    , canCapture state square]
+             Friendly    -> liftM and $ sequence [ ((liftM not) . isBlank board) square
+                                                   , isFriendly state square]
+             IsPiece p   -> liftM (== p) $ readArray board square
       else return False
 
 validPointMoves :: MoveType -> GameState s -> [Square] -> ST s [Square]
@@ -62,6 +69,9 @@ lineMove capture direction state@(GameState turn turnColor board) square = do
         untilBlocked :: GameState s -> [Square] -> ST s [Square]
         untilBlocked state [] = return []
         untilBlocked state@(GameState turn turnColor board) (s:squares) = case capture of
+            XRay -> do
+                continue $ Just s
+        
             Move -> do
                 blank <- isBlank board s
                 if blank
@@ -73,29 +83,35 @@ lineMove capture direction state@(GameState turn turnColor board) square = do
                 capture <- canCapture state s
                 if blank
                     then continue Nothing
-                    else return $ doCapture capture s
+                    else return $ addIf capture s
             
             MoveCapture -> do
                 blank   <- isBlank board s
                 capture <- canCapture state s
                 if blank
                     then continue $ Just s
-                    else return $ doCapture capture s
+                    else return $ addIf capture s
+                    
+            Friendly -> do
+                blank    <- isBlank board s
+                friendly <- isFriendly state square
+                if blank
+                    then continue Nothing
+                    else return $ addIf friendly s
             
             where
                 continue (Just s) = untilBlocked state squares >>= (\tail -> return (s : tail))
                 continue Nothing  = untilBlocked state squares
-                doCapture capture s = if capture then [s] else []
+                addIf b s = if b then [s] else []
 
 lineMoves :: MoveType -> [Direction] -> GameState s -> Square -> ST s [Square]
 lineMoves capture directions state square
     = (liftM concat) $ mapM (\d -> lineMove capture d state square) directions
 
-knightMoves :: GameState s -> Square -> ST s [Square]
-knightMoves state square@(i,j)
-    = validPointMoves MoveCapture state
+knightMoves :: MoveType -> GameState s -> Square -> ST s [Square]
+knightMoves capture state square@(i,j)
+    = validPointMoves capture state
     $ concat [[(i+da,j+db), (i+db,j+da)] | da <- [-2,2], db <- [-1,1]]
-
            
 (+..+) :: ST s [Square] -> ST s [Square] -> ST s [Square]
 mover1 +..+ mover2 = do
