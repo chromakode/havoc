@@ -94,6 +94,8 @@ play whitePlayer blackPlayer logLn debug state = do
                                  oppIsIO   = (playerOfColor . invertColor . turnColor . gameState) state == IO
                              
                              (stToIO $ (showGameState . gameState) state) >>= putStrLn
+                             (stToIO $ score state) >>= (\s -> debugLn $ "Current board score: " ++ show s)
+                             
                              putStrLn $ show curPlayer ++ " moving..."
                              
                              Timed dt (PlayerResult stats m) <- timedPlayer (playerMove curPlayer) state
