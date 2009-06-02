@@ -80,8 +80,8 @@ mcEvaluateMove oldValue undoDelta state diff@(MoveDiff movedPiece (fromSquare, t
     let sign = lastColorSign (turnColor state)
     if takenPiece /= Blank && (pieceType takenPiece) == King
       then return $ sign * (winScore state)
-      else do materialDelta   <- naiveMaterialScore state diff
-              positionDelta <- positionScore state (toSquare  , becomePiece)
+      else do materialDelta <- naiveMaterialScore state diff
+              positionDelta <- positionScore state (toSquare, becomePiece)
               return $ oldValue + (sign * (materialDelta + positionDelta + undoDelta))
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
@@ -98,7 +98,7 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
         
 positionScore :: GameState s -> Position -> ST s Score
 positionScore state          (_     , Blank) = return 0
-positionScore state position@(square, piece) = do
+positionScore state position@(square@(row,col), piece) = do
     classScore <- case piece of
         Piece _ Pawn   -> do
             supporting <- countPawns [Northeast, Northwest, Southeast, Southwest]
@@ -110,8 +110,10 @@ positionScore state position@(square, piece) = do
         otherwise      -> return 0
     
     --movesScore <- moveGenScore state position
+    playerEndRow <- endRow (colorOf piece) (board state)
+    let height = playerEndRow - row
     
-    return $ classScore
+    return $ classScore + height
 
 moveGenScore :: GameState s -> Position -> ST s Score
 moveGenScore state position@(square, piece) = do
