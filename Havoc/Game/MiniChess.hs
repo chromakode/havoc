@@ -41,9 +41,10 @@ handlePromotion (GameState turn turnColor board) diff@(MoveDiff movedPiece (from
 
 mcMove :: Evaluated (GameState s) -> Move -> ST s (Evaluated (GameState s), Evaluated MoveDiff)
 mcMove es@(Evaluated oldValue state) move@(fromSquare, toSquare) = do
+    undoDelta <- mcEvaluatePreMove state move
     (newState, diff) <- chessDoMove state move
     diff <- handlePromotion newState diff
-    newValue <- mcEvaluateMove oldValue newState diff
+    newValue <- mcEvaluateMove oldValue undoDelta newState diff
     return (Evaluated newValue newState, Evaluated oldValue diff)
 
 --
@@ -65,15 +66,23 @@ lastColorSign color = case invertColor color of
                     White -> 1
                     Black -> -1
 
-mcEvaluateMove :: Score -> GameState s -> MoveDiff -> ST s Score
-mcEvaluateMove oldValue state diff@(MoveDiff movedPiece _ takenPiece _) = do
+mcEvaluatePreMove :: GameState s -> Move -> ST s Score
+mcEvaluatePreMove state@(GameState turn turnColor board) (fromSquare, toSquare) = do
+    movedPiece <- readArray board fromSquare
+    takenPiece <- readArray board toSquare
+    movedPastScore <- positionScore state (fromSquare, movedPiece)
+    takenPastScore <- positionScore state (toSquare  , takenPiece)
+    return $ -movedPastScore + takenPastScore
+
+mcEvaluateMove :: Score -> Score -> GameState s -> MoveDiff -> ST s Score
+mcEvaluateMove oldValue undoDelta state diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
     -- In the MiniChess type, scores are stored with static sign, with positive values in White's favor, and negative values in Black's favor. In this module, scores are treated with relative sign, with positive scores in the current player's favor. We convert the sign scheme here.
     let sign = lastColorSign (turnColor state)
     if takenPiece /= Blank && (pieceType takenPiece) == King
       then return $ sign * (winScore state)
       else do materialDelta   <- naiveMaterialScore state diff
-              positionalDelta <- positionalScore state diff
-              return $ oldValue + (sign * (materialDelta + positionalDelta))
+              positionDelta <- positionScore state (toSquare  , becomePiece)
+              return $ oldValue + (sign * (materialDelta + positionDelta + undoDelta))
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
 naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
@@ -86,37 +95,36 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
         score (Piece color Rook)   = 500
         score (Piece color Queen)  = 900
         score (Piece color King)   = 0
-
-positionalScore :: GameState s -> MoveDiff -> ST s Score
-positionalScore state@(GameState turn turnColor board) (MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
-    myPastScore    <- positionScore (fromSquare, movedPiece)
-    myFutureScore  <- positionScore (toSquare  , movedPiece)
-    theirPastScore <- positionScore (toSquare  , takenPiece)
-    return $ myFutureScore - myPastScore + theirPastScore
-    where
-        positionScore          (_     , Blank) = return 0
-        positionScore position@(square, piece) = do
-            classScore <- case piece of 
-                Piece _ Pawn   -> liftM ((10*) . length) $ dirMoves (IsPiece piece) [Northeast, Northwest, Southeast, Southwest] state square
-                otherwise      -> return 0
-            
-            --movesScore <- moveGenScore position
-            
-            return $ classScore
         
-        moveGenScore position@(square, piece) = do
-            moves <- moveGenPosition mcMovesXray state position
-            isCenter <- isCenterPred state
-            let moveDests = map snd moves
-            let centerScore = ((10*) . length . filter isCenter) moveDests
-            let mobilityScore = length moves
-            return $ centerScore + mobilityScore
-            
+positionScore :: GameState s -> Position -> ST s Score
+positionScore state          (_     , Blank) = return 0
+positionScore state position@(square, piece) = do
+    classScore <- case piece of
+        Piece _ Pawn   -> liftM ((10*) . length) $ dirMoves (IsPiece piece) [Northeast, Northwest, Southeast, Southwest] state square
+        otherwise      -> return 0
+    
+    --movesScore <- moveGenScore state position
+    
+    return $ classScore
+
+moveGenScore :: GameState s -> Position -> ST s Score
+moveGenScore state position@(square, piece) = do
+    moves <- moveGenPosition mcMovesXray state position
+    isCenter <- isCenterPred state
+    let moveDests = map snd moves
+    let centerScore = ((10*) . length . filter isCenter) moveDests
+    let mobilityScore = length moves
+    return $ centerScore + mobilityScore
+    where
         isCenterPred state = do
-            ((li,lj),(ui,uj)) <- getBounds board
+            ((li,lj),(ui,uj)) <- getBounds (board state)
             return (\(i,j) ->
                        abs ((fromIntegral i) - ((fromIntegral (ui-li))/2)) <= 0.5
                     && abs ((fromIntegral j) - ((fromIntegral (uj-lj))/2)) <= 0.5)
+
+--
+-- Basic rules and Game instance
+--
 
 mcStartBoard :: ST s (Board s)
 mcStartBoard = readBoard mcStartBoardText
