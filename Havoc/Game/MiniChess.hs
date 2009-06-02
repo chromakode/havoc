@@ -91,9 +91,9 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
         score Blank                = 0        
         score (Piece color Pawn)   = 100
         score (Piece color Knight) = 175
-        score (Piece color Bishop) = 500
+        score (Piece color Bishop) = 350
         score (Piece color Rook)   = 500
-        score (Piece color Queen)  = 900
+        score (Piece color Queen)  = 700
         score (Piece color King)   = 0
         
 positionScore :: GameState s -> Position -> ST s Score
