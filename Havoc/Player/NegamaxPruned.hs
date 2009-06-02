@@ -21,8 +21,7 @@ shuffleAndSortStatuses stdGen state moves = do
     moves <- mapMoves state (\m s -> do value <- score s
                                         return (value, m)
                             ) moves
-    let movesShuffled = shuffle' moves (length moves) stdGen
-        movesSorted   = sortBy (comparing fst) movesShuffled
+    let movesSorted = sortBy (comparing fst) moves
     return $ map snd movesSorted
 
 negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO Score
