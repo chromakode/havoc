@@ -26,6 +26,7 @@ shuffleAndSortStatuses stdGen state moves = do
 
 negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO Score
 negamaxPruned state nodeCount depth ourBest theirBest = do
+    modifyIORef nodeCount (+1)
     if depth == 0 then stToIO $ score state
       else do status <- stToIO $ gameStatus state
               case status of
@@ -37,7 +38,6 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
     where
         runPrune [] localBest ourBest = return localBest
         runPrune (move:moves) localBest ourBest = do
-            modifyIORef nodeCount (+1)
             
             moveValueNeg <- doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
             
