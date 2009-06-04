@@ -21,7 +21,6 @@ type BoardBounds = (Square, Square)
 data GameState s = GameState { turn      :: Int
                              , turnColor :: Color
                              , board     :: Board s }
-                 deriving Eq
 
 instance Show Color where
     show White = "W"
@@ -152,3 +151,15 @@ copyGameState :: GameState s -> ST s (GameState s)
 copyGameState (GameState turn turnColor board) = do
     board' <- copyBoard board
     return $ GameState turn turnColor board'
+
+boardEq :: Board s -> Board s -> ST s Bool
+boardEq board1 board2 = do
+    bounds1 <- getBounds board1
+    bounds2 <- getBounds board2
+    if bounds1 /= bounds2
+        then return False
+        else (liftM and) $ mapM (\i -> do x1 <- readArray board1 i
+                                          x2 <- readArray board2 i
+                                          return $ x1 == x2)
+                                (range bounds1)
+

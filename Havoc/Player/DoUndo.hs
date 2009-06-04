@@ -26,4 +26,17 @@ doUndoIO state m f = do
     state <- stToIO $ undoMove state diff
     return result
 
-
+checkDoUndoIO :: (Game a) => a RealWorld -> IO b -> IO b
+checkDoUndoIO state action = do
+    stateCopy <- stToIO $ copyState state
+    result <- action
+    eq <- stToIO $ boardEq (board $ gameState state) (board $ gameState stateCopy)
+    score1 <- stToIO $ score state
+    score2 <- stToIO $ score stateCopy
+    if eq && (score1 == score2)
+        then do return result
+        else do (stToIO $ (showGameState . gameState) state) >>= putStrLn
+                (stToIO $ score state) >>= print
+                (stToIO $ (showGameState . gameState) stateCopy) >>= putStrLn
+                (stToIO $ score stateCopy) >>= print
+                return $ error "State was not undone correctly"

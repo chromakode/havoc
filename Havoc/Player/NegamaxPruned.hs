@@ -10,6 +10,7 @@ import Data.Time.Clock
 import Havoc.Game
 import Havoc.Game.Move
 import Havoc.Game.State
+import Havoc.Globals
 import Havoc.Player.DoUndo
 import Havoc.Player.IterativeDeepening
 import Havoc.Utils
@@ -39,7 +40,10 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
         runPrune [] localBest ourBest = return localBest
         runPrune (move:moves) localBest ourBest = do
             
-            moveValueNeg <- doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
+            let recurse = doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
+            moveValueNeg <- if not testDoUndo
+                                then recurse
+                                else checkDoUndoIO state recurse
             
             let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'

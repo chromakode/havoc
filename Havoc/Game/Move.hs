@@ -15,6 +15,7 @@ type PieceMoveGen s = GameState s -> Position -> ST s [Square]
 
 type Score = Int
 data Evaluated a = Evaluated Score a
+                 deriving (Eq, Show)
 
 dirMove :: Direction -> Square -> Square
 dirMove North     (i,j) = (i-1,j)
