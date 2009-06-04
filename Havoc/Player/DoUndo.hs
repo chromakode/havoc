@@ -18,7 +18,8 @@ doUndo state m f = do
     result <- f m state
     state <- undoMove state diff
     return result
-    
+
+
 doUndoIO :: (Game a) => a RealWorld -> Move -> (Move -> a RealWorld -> IO b) -> IO b
 doUndoIO state m f = do
     (state, diff) <- stToIO $ doMove state m
