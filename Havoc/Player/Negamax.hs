@@ -22,7 +22,7 @@ negamax state nodeCount depth = do
       else do sts <- showGameState (gameState state)
               --return $! trace (sts) 0
               moves <- moveGen state
-              return $! trace (show (moves) ++ show (turnColor (gameState state))) 0
+              --return $! trace (show (moves) ++ show (turnColor (gameState state))) 0
               negamaxValue moves
     where        
         negamaxValue moves = do

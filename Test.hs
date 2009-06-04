@@ -20,17 +20,20 @@ startBoardText =
     \RNBQK\n"
 
 countMoveGen state = do
-    count <- stToIO $ countMoves state 2
-    putStrLn $ "Node count: " ++ show count
+    count <- stToIO $ countMoves state 4
+    putStrLn $ "Node count: " ++ show (count + 1)
     where
         countMoves :: (Game a) => a s -> Int -> ST s Int
-        countMoves state' 0     = return 1
+        countMoves state' 0     = do
+            sts <- showGameState (gameState state')
+            --return $! trace (sts) 0
+            return 0
         countMoves state' depth = do
             sts <- showGameState (gameState state')
-            return $! trace (sts) 0
+            --return $! trace (sts) 0
             moves <- moveGen state'
-            return $! trace (show moves) 0
-            counts <- mapMoves state' (\m s -> countMoves state' (depth-1)) moves
+            --return $! trace (show moves) 0
+            counts <- mapMoves state' (\m s -> (liftM (1+)) $ countMoves s (depth-1)) moves
             return $ sum counts
 
 testMoveScoring state = do
@@ -44,7 +47,7 @@ testMoveScoring state = do
     
     putStrLn "---"
     
-    (nodes, scoredMoves) <- stToIO $ negamaxMoves state 2
+    (nodes, scoredMoves) <- stToIO $ negamaxMoves state 4
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
     putStrLn (show nodes)
     
