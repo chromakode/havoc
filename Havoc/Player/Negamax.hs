@@ -25,7 +25,7 @@ negamax state nodeCount depth = do
     where        
         negamaxValue moves = do
             values <- mapMoves state (\_ s -> negamax s nodeCount (depth-1)) moves
-            return $ (negate . minimum) values
+            return $! (negate . minimum) values
 
 negamaxMoves :: (Game a) => a s -> Int -> ST s (Int, [(Score, Move)])
 negamaxMoves state depth = do
@@ -40,7 +40,7 @@ negamaxMoves state depth = do
                                                          return (v, m)
                                              ) moves
                     nodes <- readSTRef nodeCount
-                    return (nodes, minimumsPair movevs)
+                    return $! (nodes, minimumsPair movevs)
 
 negamaxMovesID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])
 negamaxMovesID debugLn seconds state = iterativelyDeepen debugLn (\s d -> stToIO (negamaxMoves s d)) seconds state

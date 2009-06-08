@@ -20,14 +20,14 @@ data Evaluated a = Evaluated Score a
                  deriving (Eq, Show)
 
 dirMove :: Direction -> Square -> Square
-dirMove North     (!i,!j) = (i-1,j)
-dirMove South     (!i,!j) = (i+1,j)
-dirMove East      (!i,!j) = (i,j+1)
-dirMove West      (!i,!j) = (i,j-1)
-dirMove Northeast (!i,!j) = (i-1,j+1)
-dirMove Southeast (!i,!j) = (i+1,j+1)
-dirMove Southwest (!i,!j) = (i+1,j-1)
-dirMove Northwest (!i,!j) = (i-1,j-1)
+dirMove North     !(!i,!j) = (i-1,j)
+dirMove South     !(!i,!j) = (i+1,j)
+dirMove East      !(!i,!j) = (i,j+1)
+dirMove West      !(!i,!j) = (i,j-1)
+dirMove Northeast !(!i,!j) = (i-1,j+1)
+dirMove Southeast !(!i,!j) = (i+1,j+1)
+dirMove Southwest !(!i,!j) = (i+1,j-1)
+dirMove Northwest !(!i,!j) = (i-1,j-1)
 
 canCapture :: GameState s -> Square -> ST s Bool
 canCapture state = (liftM not) . (isTurnColor state)

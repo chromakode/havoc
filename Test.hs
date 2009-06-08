@@ -49,4 +49,4 @@ runNegamaxTurn state seconds = do
     
 main = do
     state <- stToIO $ readBoard startBoardText >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 2 Black board)
-    runNegamaxTurn state 2
+    runNegamaxTurn state 60
