@@ -7,6 +7,7 @@ import Havoc.Game.State
 import Havoc.Game.MiniChess
 import Havoc.Player
 import Havoc.Player.DoUndo
+import Havoc.Player.Negamax
 import Havoc.Player.NegamaxPruned
 
 startBoardText =
@@ -42,8 +43,10 @@ testMoveScoring state = do
     (depth, nodes, scoredMoves) <- negamaxPrunedMovesID putStrLn 7 state
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
     
-    
+runNegamaxTurn state seconds = do
+    (depth, nodes, scoredMoves) <- negamaxMovesID putStrLn seconds state
+    (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
     
 main = do
     state <- stToIO $ readBoard startBoardText >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 2 Black board)
-    countMoveGen state
+    runNegamaxTurn state 60
