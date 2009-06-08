@@ -1,8 +1,9 @@
 module Havoc.Utils where
 
 import Control.Monad.ST.Strict
-import Data.Time.Clock (NominalDiffTime)
+import Data.IORef
 import Data.List (unfoldr)
+import Data.Time.Clock (NominalDiffTime)
 import Data.STRef.Strict
 import Numeric
 
@@ -41,3 +42,6 @@ showSeconds digits duration = showFFloat (Just digits) seconds ""
         
 modifySTRef' :: STRef s a -> (a -> a) -> ST s ()
 modifySTRef' ref f = (\x -> writeSTRef ref $! f x) =<< readSTRef ref
+
+modifyIORef' :: IORef a -> (a -> a) -> IO ()
+modifyIORef' ref f = readIORef ref >>= (\x -> writeIORef ref $! f x)
