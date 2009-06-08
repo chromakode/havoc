@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Havoc.Game.Move where
 
 import Control.Monad
@@ -18,14 +20,14 @@ data Evaluated a = Evaluated Score a
                  deriving (Eq, Show)
 
 dirMove :: Direction -> Square -> Square
-dirMove North     (i,j) = (i-1,j)
-dirMove South     (i,j) = (i+1,j)
-dirMove East      (i,j) = (i,j+1)
-dirMove West      (i,j) = (i,j-1)
-dirMove Northeast (i,j) = (i-1,j+1)
-dirMove Southeast (i,j) = (i+1,j+1)
-dirMove Southwest (i,j) = (i+1,j-1)
-dirMove Northwest (i,j) = (i-1,j-1)
+dirMove North     (!i,!j) = (i-1,j)
+dirMove South     (!i,!j) = (i+1,j)
+dirMove East      (!i,!j) = (i,j+1)
+dirMove West      (!i,!j) = (i,j-1)
+dirMove Northeast (!i,!j) = (i-1,j+1)
+dirMove Southeast (!i,!j) = (i+1,j+1)
+dirMove Southwest (!i,!j) = (i+1,j-1)
+dirMove Northwest (!i,!j) = (i-1,j-1)
 
 canCapture :: GameState s -> Square -> ST s Bool
 canCapture state = (liftM not) . (isTurnColor state)
@@ -34,20 +36,27 @@ isFriendly :: GameState s -> Square -> ST s Bool
 isFriendly state = isTurnColor state
 
 validPointMove :: MoveType -> GameState s -> Square -> ST s Bool
-{-# INLINE validPointMove #-}
 validPointMove capture state@(GameState turn turnColor board) square = do
     bounds <- getBounds board
     if (inRange bounds square)
       then case capture of
              XRay        -> return True
              Move        -> isBlank board square
-             Capture     -> liftM and $ sequence [ ((liftM not) . isBlank board) square
-                                                   , canCapture state square]
-             MoveCapture -> liftM or  $ sequence [ isBlank board square
-                                                   , canCapture state square]
-             Friendly    -> liftM and $ sequence [ ((liftM not) . isBlank board) square
-                                                   , isFriendly state square]
-             IsPiece p   -> liftM (== p) $ readArray board square
+             
+             Capture     -> do blank   <- isBlank board square
+                               capture <- canCapture state square
+                               return $ not blank && capture
+                                
+             MoveCapture -> do blank   <- isBlank board square
+                               capture <- canCapture state square
+                               return $ blank || capture
+                                
+             Friendly    -> do blank  <- isBlank board square
+                               friend <- isFriendly state square
+                               return $ not blank && friend
+                               
+             IsPiece p   -> do piece <- readArray board square
+                               return $ piece == p
       else return False
 
 validPointMoves :: MoveType -> GameState s -> [Square] -> ST s [Square]
