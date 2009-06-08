@@ -16,7 +16,7 @@ import Havoc.Utils
 
 negamax :: (Game a) => a s -> STRef s Int -> Int -> ST s Score
 negamax state nodeCount depth = do
-    modifySTRef nodeCount (+1)
+    modifySTRef' nodeCount (+1)
     if depth == 0 then score state
       else do status <- gameStatus state
               case status of

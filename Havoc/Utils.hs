@@ -1,7 +1,9 @@
 module Havoc.Utils where
 
+import Control.Monad.ST.Strict
 import Data.Time.Clock (NominalDiffTime)
 import Data.List (unfoldr)
+import Data.STRef.Strict
 import Numeric
 
 minimumsBy :: (Ord b) => (a -> b) -> [a] -> [a]
@@ -36,3 +38,6 @@ showSeconds digits duration = showFFloat (Just digits) seconds ""
     where
         -- This is pretty dumb. 
         seconds = (fromRational . toRational) duration
+        
+modifySTRef' :: STRef s a -> (a -> a) -> ST s ()
+modifySTRef' ref f = (\x -> writeSTRef ref $! f x) =<< readSTRef ref
