@@ -1,4 +1,4 @@
 module Havoc.Globals where
 
 testDoUndo :: Bool
-testDoUndo = True
+testDoUndo = False
