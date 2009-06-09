@@ -17,8 +17,8 @@ import Havoc.Utils
 import System.Random
 import System.Random.Shuffle
 
-shuffleAndSortStatuses :: (Game a) => StdGen -> a s -> [Move] -> ST s [Move]
-shuffleAndSortStatuses stdGen state moves = do
+sortMoves :: (Game a) => a s -> [Move] -> ST s [Move]
+sortMoves state moves = do
     moves <- mapMoves state (\m s -> do value <- score s
                                         return (value, m)
                             ) moves
@@ -33,9 +33,8 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
               case status of
                 End result     -> stToIO $ evaluateResult state result
                 Continue moves -> do
-                    stdGen <- getStdGen
-                    statusSorted <- stToIO $ shuffleAndSortStatuses stdGen state moves
-                    runPrune statusSorted (-max_eval_score) ourBest
+                    sortedMoves <- stToIO $ sortMoves state moves
+                    runPrune sortedMoves (-max_eval_score) ourBest
     where
         runPrune [] localBest ourBest = return localBest
         runPrune (move:moves) localBest ourBest = do
@@ -62,10 +61,12 @@ negamaxPrunedMoves state depth = do
               case status of
                 End result     -> return (1, [])
                 Continue moves -> do
-                    nodeCount <- newIORef 1
                     stdGen <- getStdGen
-                    statusSorted <- stToIO $ shuffleAndSortStatuses stdGen state moves
-                    runTopPrune statusSorted nodeCount (-max_eval_score) (-max_eval_score) []
+                    let shuffledMoves = shuffle' moves (length moves) stdGen
+                    sortedMoves <- stToIO $ sortMoves state shuffledMoves
+                    
+                    nodeCount <- newIORef 1
+                    runTopPrune sortedMoves nodeCount (-max_eval_score) (-max_eval_score) []
     where
         status = gameStatus state
     
