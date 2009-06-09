@@ -90,7 +90,7 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
     where
         score Blank                = 0        
         score (Piece color Pawn)   = 100
-        score (Piece color Knight) = 175
+        score (Piece color Knight) = 200
         score (Piece color Bishop) = 350
         score (Piece color Rook)   = 500
         score (Piece color Queen)  = 700
@@ -99,21 +99,22 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
 positionScore :: GameState s -> Position -> ST s Score
 positionScore state          (_     , Blank) = return 0
 positionScore state position@(square@(row,col), piece) = do
+    playerStartRow <- startRow (colorOf piece) (board state)
+    let height = abs (playerStartRow - row)
+
     classScore <- case piece of
         Piece _ Pawn   -> do
             supporting <- countPawns [Northeast, Northwest, Southeast, Southwest]
             adjacent   <- countPawns [East, West]
             column     <- countPawns [North, South]
-            return $ 15*supporting + 5*adjacent - 5*column
+            return $ 2*height + 20*supporting + 5*adjacent - 2*column
             where
                 countPawns dirs = (liftM length) $ dirMoves (IsPiece piece) dirs state square
-        otherwise      -> return 0
+        otherwise      -> return height
     
     --movesScore <- moveGenScore state position
-    playerStartRow <- startRow (colorOf piece) (board state)
-    let height = abs (playerStartRow - row)
     
-    return $ classScore + height
+    return $ classScore
 
 moveGenScore :: GameState s -> Position -> ST s Score
 moveGenScore state position@(square, piece) = do
