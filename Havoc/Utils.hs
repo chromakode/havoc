@@ -16,14 +16,20 @@ minimumsBy p as
     where 
         abs = map (\a -> (a, p a)) as
         minb = (minimum . map snd) abs
-        
-minimumsPair :: (Ord a) => [(a,b)] -> [(a,b)]
-minimumsPair [] = []
-minimumsPair ls
-    = filter ((==mina) . fst)
+
+selectWithBy :: (Eq b) => (a -> b) -> ([b] -> b) -> [a] -> [a]
+selectWithBy with by [] = []
+selectWithBy with by ls
+    = filter ((==selected) . with)
     $ ls
     where
-        mina = (minimum . map fst) ls
+        selected = (by . map with) ls
+   
+minimumsPair :: (Ord a) => [(a,b)] -> [(a,b)]
+minimumsPair = selectWithBy fst minimum
+        
+maximumsPair :: (Ord a) => [(a,b)] -> [(a,b)]
+maximumsPair = selectWithBy fst maximum
         
 -- Take alternate items from a list of lists
 -- E.g. [[1,2], [3,4]] => [1,3,2,4]
