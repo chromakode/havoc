@@ -165,7 +165,7 @@ readPlayer color text
         Just (player,_) -> case color of
                              White -> (\opts -> opts { whitePlayer = player })
                              Black -> (\opts -> opts { blackPlayer = player })
-        Nothing         -> error $ "Invalid player \"" ++ text ++ "\"specified"
+        Nothing         -> error $ "Invalid player \"" ++ text ++ "\" specified"
         
 getLogFileName logName
     = do t <- getZonedTime
