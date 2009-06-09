@@ -120,13 +120,15 @@ positions board = do
     assocs <- getAssocs board
     return $ filter (\(s,p) -> p /= Blank) assocs
 
-endRow :: Color -> Board s -> ST s Int
+startRow, endRow :: Color -> Board s -> ST s Int
 {-# INLINE endRow #-}
-endRow color board = do
+startRow color board = do
     ((li,lj),(ui,uj)) <- getBounds board
     return $ case color of
-               White -> li
-               Black -> ui        
+               White -> ui
+               Black -> li
+               
+endRow color = startRow (invertColor color)
 
 showGameState :: GameState s -> ST s String
 showGameState (GameState turn turnColor board) = do

@@ -110,8 +110,8 @@ positionScore state position@(square@(row,col), piece) = do
         otherwise      -> return 0
     
     --movesScore <- moveGenScore state position
-    playerEndRow <- endRow (colorOf piece) (board state)
-    let height = playerEndRow - row
+    playerStartRow <- startRow (colorOf piece) (board state)
+    let height = abs (playerStartRow - row)
     
     return $ classScore + height
 
