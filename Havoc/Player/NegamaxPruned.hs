@@ -62,8 +62,7 @@ negamaxPrunedMoves state depth = do
                 End result     -> return (1, [])
                 Continue moves -> do
                     stdGen <- getStdGen
-                    let shuffledMoves = shuffle' moves (length moves) stdGen
-                    sortedMoves <- stToIO $ sortMoves state shuffledMoves
+                    sortedMoves <- stToIO $ sortMoves state moves
                     
                     nodeCount <- newIORef 1
                     runTopPrune sortedMoves nodeCount (-max_eval_score) (-max_eval_score) []
