@@ -72,7 +72,7 @@ negamaxPrunedMoves state depth = do
         runTopPrune [] nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
                                                                   return (nodes, bestMoves)
         runTopPrune (move:moves) nodeCount localBest ourBest bestMoves = do
-            moveValueNeg <- doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-1) (-ourBest))
+            moveValueNeg <- doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-max_eval_score) (-ourBest))
             let curValue   = -moveValueNeg
                 localBest' = max localBest curValue
                 ourBest'   = max ourBest curValue
