@@ -47,6 +47,6 @@ runTurn mover state seconds = do
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn   
     
 main = do
-    state <- stToIO $ readBoard startBoardText >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 2 Black board)
+    state <- stToIO $ readBoard startBoardText >>= fromBoard :: IO (MiniChess RealWorld)
     runTurn negamaxMovesID       state 10
     runTurn negamaxPrunedMovesID state 10

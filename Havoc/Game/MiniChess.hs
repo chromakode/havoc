@@ -6,6 +6,7 @@ import Data.Array.ST
 import Havoc.Game
 import Havoc.Game.State
 import Havoc.Game.Move
+import Havoc.Utils (copyMArray, swap)
 
 --
 -- Move Generation
@@ -21,7 +22,7 @@ mcMovesT mt state (square, Piece White Pawn)   = (dirMoves Move [North] state sq
 mcMovesT mt state (square, Piece Black Pawn)   = (dirMoves Move [South] state square) +..+ (dirMoves Capture [Southwest, Southeast] state square)
 mcMovesT mt state (square, Blank) = error "Move.mcMoves: moves for blank square requested"
 
-mcMoves, mcMovesXray :: GameState s -> Position  -> ST s [Square]
+mcMoves, mcMovesXray :: GameState s -> Position -> ST s [Square]
 mcMoves     = mcMovesT MoveCapture
 mcMovesXray = mcMovesT XRay
 
@@ -39,13 +40,41 @@ handlePromotion (GameState turn turnColor board) diff@(MoveDiff movedPiece (from
                 return $ MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece
         else return diff
 
-mcMove :: Evaluated (GameState s) -> Move -> ST s (Evaluated (GameState s), Evaluated MoveDiff)
-mcMove es@(Evaluated oldValue state) move@(fromSquare, toSquare) = do
+updatePawnFiles :: PawnFiles s -> MoveDiff -> Bool -> ST s ()
+updatePawnFiles pawnFiles (MoveDiff movedPiece move takenPiece becomePiece) undo = do
+    when (isPawn movedPiece)  (addValue fromFile (-myPawnValue))
+    when (isPawn becomePiece) (addValue toFile     myPawnValue)
+    when (isPawn takenPiece)  (addValue toFile     myPawnValue)
+    where
+        ((_, fromFile), (_, toFile)) = move
+        mySign = (colorSign . colorOf) movedPiece
+        myPawnValue = if not undo then mySign else -mySign
+        
+        isPawn piece = (piece /= Blank) && (pieceType piece == Pawn)
+        
+        addValue file value = do
+            count <- readArray pawnFiles file
+            writeArray pawnFiles file (count + value)
+
+mcMove :: MiniChess s -> Move -> ST s (MiniChess s, Evaluated MoveDiff)
+mcMove (MiniChess eS@(Evaluated oldValue state) pF) move@(fromSquare, toSquare) = do
+    -- Evaluate the previous state
     undoDelta <- mcEvaluatePreMove state move
+    
+    -- Perform the move
     (newState, diff) <- chessDoMove state move
     diff <- handlePromotion newState diff
+    updatePawnFiles pF diff False
+    
+    -- Evaluate the new state
     newValue <- mcEvaluateMove oldValue undoDelta newState diff
-    return (Evaluated newValue newState, Evaluated oldValue diff)
+    return (MiniChess (Evaluated newValue newState) pF, Evaluated oldValue diff)
+
+mcUndoMove :: MiniChess s -> Evaluated MoveDiff -> ST s (MiniChess s)
+mcUndoMove (MiniChess eS@(Evaluated v s) pF) eDiff@(Evaluated _ diff) = do
+    eS' <- chessUndoMoveEval eS eDiff
+    updatePawnFiles pF diff True
+    return $ MiniChess eS' pF
 
 --
 -- Evaluation
@@ -61,10 +90,12 @@ mcEvaluateResult state@(GameState turn turnColor board) result
         Win color   -> let sign = if color == turnColor then 1 else -1 in
                        return $ sign * (winScore state)
 
-lastColorSign :: Color -> Int
-lastColorSign color = case invertColor color of
+colorSign, lastColorSign :: Color -> Int
+colorSign color = case color of
                     White -> 1
                     Black -> -1
+
+lastColorSign = colorSign . invertColor
 
 mcEvaluatePreMove :: GameState s -> Move -> ST s Score
 mcEvaluatePreMove state@(GameState turn turnColor board) (fromSquare, toSquare) = do
@@ -146,12 +177,21 @@ mcStartBoard = readBoard mcStartBoardText
             \PPPPP\n\
             \RNBQK\n"
 
-newtype MiniChess s = MiniChess (Evaluated (GameState s))
+type PawnFiles s = STUArray s Int Int
+data MiniChess s = MiniChess { mcState   :: Evaluated (GameState s)
+                             , pawnFiles :: PawnFiles s             }
 instance Game MiniChess where
     {-# SPECIALIZE instance Game MiniChess #-}
-    startState = mcStartBoard >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 1 White board)
+    fromBoard board = do
+        ((li,lj),(ui,uj)) <- getBounds board
 
-    gameStatus mcState@(MiniChess (Evaluated value state)) = do
+        let mcState = Evaluated 0 $ GameState 1 White board
+        pawnFiles <- newArray (lj,uj) 0
+        return $ MiniChess mcState pawnFiles
+        
+    startState = mcStartBoard >>= fromBoard
+
+    gameStatus mcState@(MiniChess (Evaluated value state) pF) = do
         ps <- pieces (board state)
         
         let kings = filter ((King==) . pieceType) ps
@@ -168,15 +208,17 @@ instance Game MiniChess where
                     then return $ End Draw
                     else return $ Continue moves
 
-    moveGen        (MiniChess    (Evaluated v s))       = chessMoveGen mcMoves s
-    pieceMoveGen   (MiniChess    (Evaluated v s))       = moveGenPosition mcMoves s
-    validMove      (MiniChess    (Evaluated v s))       = chessValidMove mcMoves s
-    doMove         (MiniChess es@(Evaluated v s)) move  = mcMove es move >>= (\(es', d) -> return (MiniChess es', d))
-    undoMove       (MiniChess es@(Evaluated v s)) ediff = (chessUndoMoveEval es ediff) >>= return . MiniChess
-    evaluateResult (MiniChess es@(Evaluated v s))       = mcEvaluateResult s
-    score          (MiniChess    (Evaluated v s))       = case turnColor s of
-                                                            White -> return v
-                                                            Black -> return (-v)
+    moveGen        (MiniChess    (Evaluated v s) pF)       = chessMoveGen mcMoves s
+    pieceMoveGen   (MiniChess    (Evaluated v s) pF)       = moveGenPosition mcMoves s
+    validMove      (MiniChess    (Evaluated v s) pF)       = chessValidMove mcMoves s
+    doMove         mc                                move  = mcMove mc move
+    undoMove       mc                                eDiff = mcUndoMove mc eDiff
+    evaluateResult (MiniChess eS@(Evaluated v s) pF)       = mcEvaluateResult s
+    score          (MiniChess    (Evaluated v s) pF)       = case turnColor s of
+                                                               White -> return v
+                                                               Black -> return (-v)
     
-    copyState      (MiniChess    (Evaluated v s))       = copyGameState s >>= (\s' -> return $ MiniChess $ Evaluated v $ s')
-    gameState      (MiniChess    (Evaluated v s))       = s
+    copyState      (MiniChess    (Evaluated v s) pF)       = do gameState' <- copyGameState s
+                                                                pawnFiles' <- copyMArray pF
+                                                                return $ MiniChess (Evaluated v gameState') pawnFiles'
+    gameState      (MiniChess    (Evaluated v s) pF)       = s

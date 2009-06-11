@@ -6,6 +6,7 @@ import Data.Array.ST
 import Data.Char
 import Data.List
 import Data.Maybe
+import Havoc.Utils (copyMArray)
 
 data Color = White | Black deriving Eq
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
@@ -143,15 +144,9 @@ readGameState s = do
     board <- readBoard u
     return $ GameState turn turnColor board
     
-copyBoard :: Board s -> ST s (Board s)
-copyBoard board = do
-    bounds <- getBounds board
-    elems  <- getElems board
-    newListArray bounds elems
-    
 copyGameState :: GameState s -> ST s (GameState s)
 copyGameState (GameState turn turnColor board) = do
-    board' <- copyBoard board
+    board' <- copyMArray board
     return $ GameState turn turnColor board'
 
 boardEq :: Board s -> Board s -> ST s Bool

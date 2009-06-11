@@ -1,5 +1,6 @@
 module Havoc.Utils where
 
+import Data.Array.MArray
 import Control.Monad.ST.Strict
 import Data.IORef
 import Data.List (unfoldr)
@@ -51,3 +52,12 @@ modifySTRef' ref f = (\x -> writeSTRef ref $! f x) =<< readSTRef ref
 
 modifyIORef' :: IORef a -> (a -> a) -> IO ()
 modifyIORef' ref f = readIORef ref >>= (\x -> writeIORef ref $! f x)
+
+copyMArray :: (Ix i, MArray a e m) => a i e -> m (a i e)
+copyMArray array = do
+    bounds <- getBounds array
+    elems  <- getElems array
+    newListArray bounds elems
+    
+swap :: (a, b) -> (b, a)
+swap (x, y) = (y, x)

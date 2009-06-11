@@ -13,6 +13,7 @@ data Result = Win Color
             deriving (Show, Eq)
             
 class Game a where
+    fromBoard      :: Board s -> ST s (a s)
     startState     :: ST s (a s)
 
     gameStatus     :: a s -> ST s GameStatus
