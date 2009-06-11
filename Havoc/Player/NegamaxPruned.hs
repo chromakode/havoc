@@ -14,8 +14,6 @@ import Havoc.Globals
 import Havoc.Player.DoUndo
 import Havoc.Player.IterativeDeepening
 import Havoc.Utils
-import System.Random
-import System.Random.Shuffle
 
 sortMoves :: (Game a) => a s -> [Move] -> ST s [Move]
 sortMoves state moves = do
@@ -61,7 +59,6 @@ negamaxPrunedMoves state depth = do
               case status of
                 End result     -> return (1, [])
                 Continue moves -> do
-                    stdGen <- getStdGen
                     sortedMoves <- stToIO $ sortMoves state moves
                     
                     nodeCount <- newIORef 1
