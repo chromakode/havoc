@@ -14,6 +14,8 @@ import Havoc.Globals
 import Havoc.Player.DoUndo
 import Havoc.Player.IterativeDeepening
 import Havoc.Utils
+import System.Random
+import System.Random.Shuffle
 
 sortMoves :: (Game a) => a s -> [Move] -> ST s [Move]
 sortMoves state moves = do
@@ -34,7 +36,7 @@ negamaxPruned state nodeCount depth ourBest theirBest = do
                     sortedMoves <- stToIO $ sortMoves state moves
                     runPrune sortedMoves (-max_eval_score) ourBest
     where
-        runPrune [] localBest ourBest = return localBest
+        runPrune []           localBest ourBest = return localBest
         runPrune (move:moves) localBest ourBest = do
             
             let recurse = doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-theirBest) (-ourBest))
@@ -59,24 +61,25 @@ negamaxPrunedMoves state depth = do
               case status of
                 End result     -> return (1, [])
                 Continue moves -> do
-                    sortedMoves <- stToIO $ sortMoves state moves
-                    
+                    stdGen <- newStdGen
+                    let shuffledMoves = shuffle' moves (length moves) stdGen
+                    sortedMoves <- stToIO $ sortMoves state shuffledMoves
+                                        
                     nodeCount <- newIORef 1
                     runTopPrune sortedMoves nodeCount (-max_eval_score) (-max_eval_score) []
     where
         status = gameStatus state
     
-        runTopPrune [] nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
-                                                                  return (nodes, bestMoves)
+        runTopPrune []           nodeCount localBest ourBest bestMoves = do nodes <- readIORef nodeCount
+                                                                            return (nodes, bestMoves)
         runTopPrune (move:moves) nodeCount localBest ourBest bestMoves = do
             moveValueNeg <- doUndoIO state move (\_ s -> negamaxPruned s nodeCount (depth-1) (-max_eval_score) (-ourBest))
             let curValue   = -moveValueNeg
                 localBest' = max localBest curValue
                 ourBest'   = max ourBest curValue
-                bestMoves' = case compare curValue localBest of 
-                               GT -> [(curValue, move)]
-                               EQ -> (curValue, move):bestMoves
-                               LT -> bestMoves
+                bestMoves' = if curValue > localBest
+                               then [(curValue, move)]
+                               else bestMoves
             runTopPrune moves nodeCount localBest' ourBest' bestMoves'
 
 negamaxPrunedMovesID :: (Game a) => (String -> IO ()) -> NominalDiffTime -> a RealWorld -> IO (Int, Int, [(Int, Move)])

@@ -34,19 +34,19 @@ testMoveScoring state = do
     (stToIO $ (showGameState . gameState) state) >>= putStrLn
     (stToIO $ showMoves state moves) >>= putStrLn
     
-    stdGen <- getStdGen
-    sortedMoves <- stToIO $ shuffleAndSortStatuses stdGen state moves
+    sortedMoves <- stToIO $ sortMoves state moves
     (stToIO $ showMoves state sortedMoves) >>= putStrLn
     
     putStrLn "---"
     
     (depth, nodes, scoredMoves) <- negamaxPrunedMovesID putStrLn 7 state
     (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
-    
-runNegamaxTurn state seconds = do
-    (depth, nodes, scoredMoves) <- negamaxMovesID putStrLn seconds state
-    (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn
+
+runTurn mover state seconds = do
+    (depth, nodes, scoredMoves) <- mover putStrLn seconds state
+    (stToIO $ showScoredMoves state scoredMoves) >>= putStrLn   
     
 main = do
     state <- stToIO $ readBoard startBoardText >>= (\board -> return $ MiniChess $ Evaluated 0 $ GameState 2 Black board)
-    runNegamaxTurn state 60
+    runTurn negamaxMovesID       state 10
+    runTurn negamaxPrunedMovesID state 10
