@@ -8,7 +8,7 @@ import Data.List
 import Data.Maybe
 import Havoc.Utils (copyMArray)
 
-data Color = White | Black deriving Eq
+data Color = White | Black deriving (Eq, Enum, Ix, Ord)
 data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
 data Piece = Piece { colorOf   :: Color
                    , pieceType :: PieceType }

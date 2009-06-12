@@ -6,7 +6,9 @@ import Data.Array.ST
 import Havoc.Game
 import Havoc.Game.State
 import Havoc.Game.Move
+import Havoc.Globals (checkPawnFiles, checkPawnEval)
 import Havoc.Utils (copyMArray, swap)
+import Debug.Trace
 
 --
 -- Move Generation
@@ -42,33 +44,41 @@ handlePromotion (GameState turn turnColor board) diff@(MoveDiff movedPiece (from
 
 updatePawnFiles :: PawnFiles s -> MoveDiff -> Bool -> ST s ()
 updatePawnFiles pawnFiles (MoveDiff movedPiece move takenPiece becomePiece) undo = do
-    when (isPawn movedPiece)  (addValue fromFile (-myPawnValue))
-    when (isPawn becomePiece) (addValue toFile     myPawnValue)
-    when (isPawn takenPiece)  (addValue toFile     myPawnValue)
+    updatePawnFile movedPiece  fromFile (-pawnValue)
+    updatePawnFile becomePiece toFile     pawnValue
+    updatePawnFile takenPiece  toFile   (-pawnValue)
     where
         ((_, fromFile), (_, toFile)) = move
-        mySign = (colorSign . colorOf) movedPiece
-        myPawnValue = if not undo then mySign else -mySign
+        pawnValue = if not undo then 1 else -1
         
         isPawn piece = (piece /= Blank) && (pieceType piece == Pawn)
-        
-        addValue file value = do
-            count <- readArray pawnFiles file
-            writeArray pawnFiles file (count + value)
+
+        updatePawnFile (Piece color Pawn) file value = do
+            let index = (color,file)
+            count <- readArray pawnFiles index
+            writeArray pawnFiles index (count + value)
+        updatePawnFile _     _ _ = return ()
 
 mcMove :: MiniChess s -> Move -> ST s (MiniChess s, Evaluated MoveDiff)
 mcMove (MiniChess eS@(Evaluated oldValue state) pF) move@(fromSquare, toSquare) = do
     -- Evaluate the previous state
-    undoDelta <- mcEvaluatePreMove state move
+    undoDelta <- mcEvaluatePreMove state pF move
     
     -- Perform the move
     (newState, diff) <- chessDoMove state move
     diff <- handlePromotion newState diff
     updatePawnFiles pF diff False
     
+    when checkPawnFiles printPawnFiles
+    
     -- Evaluate the new state
-    newValue <- mcEvaluateMove oldValue undoDelta newState diff
+    newValue <- mcEvaluateMove newState pF diff oldValue undoDelta
     return (MiniChess (Evaluated newValue newState) pF, Evaluated oldValue diff)
+    where
+        printPawnFiles = do
+            elems <- getElems pF
+            st <- showGameState state
+            return $! trace (st ++ show elems ++ "\n---") ()
 
 mcUndoMove :: MiniChess s -> Evaluated MoveDiff -> ST s (MiniChess s)
 mcUndoMove (MiniChess eS@(Evaluated v s) pF) eDiff@(Evaluated _ diff) = do
@@ -97,22 +107,22 @@ colorSign color = case color of
 
 lastColorSign = colorSign . invertColor
 
-mcEvaluatePreMove :: GameState s -> Move -> ST s Score
-mcEvaluatePreMove state@(GameState turn turnColor board) (fromSquare, toSquare) = do
+mcEvaluatePreMove :: GameState s -> PawnFiles s -> Move -> ST s Score
+mcEvaluatePreMove state@(GameState turn turnColor board) pF (fromSquare, toSquare) = do
     movedPiece <- readArray board fromSquare
     takenPiece <- readArray board toSquare
-    movedPastScore <- positionScore state (fromSquare, movedPiece)
-    takenPastScore <- positionScore state (toSquare  , takenPiece)
+    movedPastScore <- positionScore state pF (fromSquare, movedPiece)
+    takenPastScore <- positionScore state pF (toSquare  , takenPiece)
     return $ -movedPastScore + takenPastScore
 
-mcEvaluateMove :: Score -> Score -> GameState s -> MoveDiff -> ST s Score
-mcEvaluateMove oldValue undoDelta state diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) = do
+mcEvaluateMove :: GameState s -> PawnFiles s -> MoveDiff -> Score -> Score -> ST s Score
+mcEvaluateMove state pawnFiles diff@(MoveDiff movedPiece (fromSquare, toSquare) takenPiece becomePiece) oldValue undoDelta = do
     -- In the MiniChess type, scores are stored with static sign, with positive values in White's favor, and negative values in Black's favor. In this module, scores are treated with relative sign, with positive scores in the current player's favor. We convert the sign scheme here.
     let sign = lastColorSign (turnColor state)
     if takenPiece /= Blank && (pieceType takenPiece) == King
       then return $ sign * (winScore state)
       else do materialDelta <- naiveMaterialScore state diff
-              positionDelta <- positionScore state (toSquare, becomePiece)
+              positionDelta <- positionScore state pawnFiles (toSquare, becomePiece)
               return $ oldValue + (sign * (materialDelta + positionDelta + undoDelta))
 
 naiveMaterialScore :: GameState s -> MoveDiff -> ST s Score
@@ -127,20 +137,45 @@ naiveMaterialScore (GameState turn turnColor board) (MoveDiff movedPiece (fromSq
         score (Piece color Queen)  = 700
         score (Piece color King)   = 0
         
-positionScore :: GameState s -> Position -> ST s Score
-positionScore state          (_     , Blank) = return 0
-positionScore state position@(square@(row,col), piece) = do
-    playerStartRow <- startRow (colorOf piece) (board state)
+positionScore :: GameState s -> PawnFiles s -> Position -> ST s Score
+positionScore state pawnFiles          (_     , Blank) = return 0
+positionScore state pawnFiles position@(square@(row,col), piece@(Piece color pieceType)) = do
+    playerStartRow <- startRow color (board state)
     let height = abs (playerStartRow - row)
-
+        opponentColor = invertColor color
+    
     classScore <- case piece of
         Piece _ Pawn   -> do
             supporting <- countPawns [Northeast, Northwest, Southeast, Southwest]
             adjacent   <- countPawns [East, West]
             column     <- countPawns [North, South]
-            return $ 2*height + 20*supporting + 5*adjacent - 2*column
+
+            ((_,minCol), (_,maxCol)) <- getBounds pawnFiles            
+            let files = filter (inRange (minCol,maxCol)) $ map (col+) [-1..1]
+            enemyFiles    <- (liftM (length . filter id)) $ countFiles files opponentColor                         
+            guardedFiles' <- (liftM (length . filter id)) $ countFiles files color
+            let guardedFiles = guardedFiles' - 1
+            
+            let isPassed = if enemyFiles == 0 then 1 else 0
+                score = 2  * height
+                      + 20 * supporting 
+                      + 5  * adjacent
+                      - 2  * column
+                      - 10 * enemyFiles
+                      + 5  * guardedFiles
+                      + 50 * isPassed
+                      + 8
+            
+            when checkPawnEval (return $! trace (show square ++ " | " ++ show [height,supporting,adjacent,column,enemyFiles,guardedFiles,isPassed] ++ ": " ++ show score) ())
+            
+            return score 
+                   
             where
                 countPawns dirs = (liftM length) $ dirMoves (IsPiece piece) dirs state square
+                countFiles files color = forM files (\file -> do
+                        pawns <- readArray pawnFiles (color, file)
+                        return (pawns >= 1))
+        
         otherwise      -> return height
     
     --movesScore <- moveGenScore state position
@@ -177,7 +212,7 @@ mcStartBoard = readBoard mcStartBoardText
             \PPPPP\n\
             \RNBQK\n"
 
-type PawnFiles s = STUArray s Int Int
+type PawnFiles s = STUArray s (Color,Int) Int
 data MiniChess s = MiniChess { mcState   :: Evaluated (GameState s)
                              , pawnFiles :: PawnFiles s             }
 instance Game MiniChess where
@@ -186,7 +221,7 @@ instance Game MiniChess where
         ((li,lj),(ui,uj)) <- getBounds board
 
         let mcState = Evaluated 0 $ GameState 1 White board
-        pawnFiles <- newArray (lj,uj) 0
+        pawnFiles <- newArray ((White,lj), (Black,uj)) 1
         return $ MiniChess mcState pawnFiles
         
     startState = mcStartBoard >>= fromBoard
