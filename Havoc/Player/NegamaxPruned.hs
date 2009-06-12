@@ -26,26 +26,28 @@ sortMoves state moves = do
     let movesSorted = sortBy (comparing fst) moves
     return $ map snd movesSorted
 
-type MoveSpace = Forest (Evaluated Move)
+type MoveTree = Forest (Evaluated Move)
 
-negamaxPrunedTree :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO (Score, MoveSpace)
-negamaxPrunedTree state nodeCount depth ourBest theirBest = do
+negamaxPrunedTreeStatus :: (Game a) => (Int -> IO ()) -> a RealWorld -> IORef Int -> Int -> Score -> Score -> IO (Score, MoveTree)
+negamaxPrunedTreeStatus depthStatus state nodeCount depth ourBest theirBest = do
     modifyIORef' nodeCount (+1)
-    if depth == 0 then (\s -> return (s,[])) =<< (stToIO $ score state)
+    if depth == 0 then (\s -> return (s, [])) =<< (stToIO $ score state)
       else do status <- stToIO $ gameStatus state
               case status of
-                End result     -> (\s -> return (s,[])) =<< (stToIO $ evaluateResult state result)
+                End result     -> (\s -> return (s, [])) =<< (stToIO $ evaluateResult state result)
                 Continue moves -> do
                     sortedMoves <- stToIO $ sortMoves state moves
                     runPrune sortedMoves ourBest (-max_eval_score) []
+
     where
         runPrune []           ourBest localBest subForest = return (localBest, subForest)
         runPrune (move:moves) ourBest localBest subForest = do
-            
-            let recurse = doUndoIO state move (\_ s -> negamaxPrunedTree s nodeCount (depth-1) (-theirBest) (-ourBest))
+            let recurse = doUndoIO state move (\_ s -> negamaxPrunedTreeStatus depthStatus s nodeCount (depth-1) (-theirBest) (-ourBest))
             (moveValueNeg, subTree) <- if not testDoUndo
                                          then recurse
                                          else checkDoUndoIO state recurse
+
+            depthStatus depth
             
             let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
@@ -58,6 +60,9 @@ negamaxPrunedTree state nodeCount depth ourBest theirBest = do
                 
                 -- This is a reasonable move. Keep searching.
                 else runPrune moves ourBest' localBest' subForest'
+
+negamaxPrunedTree :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO (Score, MoveTree)
+negamaxPrunedTree = negamaxPrunedTreeStatus (const (return ()))
 
 negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO Score
 negamaxPruned state nodeCount depth ourBest theirBest = do

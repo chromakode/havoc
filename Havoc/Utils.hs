@@ -31,6 +31,10 @@ minimumsPair = selectWithBy fst minimum
         
 maximumsPair :: (Ord a) => [(a,b)] -> [(a,b)]
 maximumsPair = selectWithBy fst maximum
+
+minimums, maximums :: (Ord a) => [a] -> [a]
+minimums = selectWithBy id minimum
+maximums = selectWithBy id maximum
         
 -- Take alternate items from a list of lists
 -- E.g. [[1,2], [3,4]] => [1,3,2,4]

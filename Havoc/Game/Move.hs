@@ -16,7 +16,8 @@ data MoveDiff = MoveDiff Piece Move Piece Piece deriving Show
 type PieceMoveGen s = GameState s -> Position -> ST s [Square]
 
 type Score = Int
-data Evaluated a = Evaluated Score a
+data Evaluated a = Evaluated { scoreOf        :: Score
+                             , stripEvaluated :: a     }
                  deriving (Eq, Show)
 
 dirMove :: Direction -> Square -> Square

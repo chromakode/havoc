@@ -1,0 +1,47 @@
+module Havoc.Components.OpeningBook where
+
+import Control.Monad
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Binary
+import Data.IORef
+import Data.Ix
+import Data.List
+import Data.Ord
+import Data.Tree
+import Data.Word
+import Havoc.Game
+import Havoc.Game.Move
+import Havoc.Game.State
+import Havoc.Player.NegamaxPruned
+import System.IO
+
+type EncodedMove = Word16
+type OpeningBook = Forest EncodedMove
+
+encodeMove :: ((Int,Int), (Int,Int)) -> Move -> EncodedMove
+encodeMove (lB, uB) move = fromIntegral $ index moveBounds move
+    where moveBounds = ((lB,lB), (uB,uB))
+    
+decodeMove :: ((Int,Int), (Int,Int)) -> EncodedMove -> Move
+decodeMove (lB, uB) encMove = (range moveBounds) !! (fromIntegral encMove)
+    where moveBounds = ((lB,lB), (uB,uB)) 
+
+genBook :: (Game a) => (Int -> IO ()) -> a RealWorld -> Int -> IO OpeningBook
+genBook status state depth = do
+    nodeCount <- newIORef 0
+    bounds <- stToIO $ getBounds $ (board . gameState) state
+    
+    (_, moveForest) <- negamaxPrunedTreeStatus status state nodeCount depth (-max_eval_score) (max_eval_score)
+    
+    let encode = (encodeMove bounds) . stripEvaluated
+    return $ (flip unfoldForest) (sortForest moveForest)
+               (\(Node move f) -> (encode move, sortForest f))
+    where 
+        sortForest = sortBy (comparing (scoreOf . rootLabel))
+        
+saveBook :: FilePath -> OpeningBook -> IO ()
+saveBook = encodeFile
+
+loadBook :: FilePath -> IO OpeningBook
+loadBook = decodeFile
