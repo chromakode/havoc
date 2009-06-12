@@ -1,4 +1,6 @@
 module Havoc.Globals where
 
-testDoUndo :: Bool
-testDoUndo = False
+testDoUndo, checkPawnFiles, checkPawnEval :: Bool
+testDoUndo     = False
+checkPawnFiles = False
+checkPawnEval  = False
