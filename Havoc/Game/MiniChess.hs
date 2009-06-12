@@ -157,7 +157,7 @@ positionScore state pawnFiles position@(square@(row,col), piece@(Piece color pie
             let guardedFiles = guardedFiles' - 1
             
             let isPassed = if enemyFiles == 0 then 1 else 0
-                score = 2  * height
+                score = 2  * height + (3 * isPassed * height)
                       + 20 * supporting 
                       + 5  * adjacent
                       - 2  * column
