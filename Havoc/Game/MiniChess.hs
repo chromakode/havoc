@@ -157,14 +157,13 @@ positionScore state pawnFiles position@(square@(row,col), piece@(Piece color pie
             let guardedFiles = guardedFiles' - 1
             
             let isPassed = if enemyFiles == 0 then 1 else 0
-                score = 2  * height + (3 * isPassed * height)
-                      + 20 * supporting 
-                      + 5  * adjacent
+                score = 2  * height + (2 * isPassed * height)
+                      + 25 * supporting 
+                      + 2  * adjacent
                       - 2  * column
-                      - 10 * enemyFiles
-                      + 5  * guardedFiles
-                      + 50 * isPassed
-                      + 8
+                      - 8  * enemyFiles
+                      + 3  * guardedFiles
+                      + 40 * isPassed
             
             when checkPawnEval (return $! trace (show square ++ " | " ++ show [height,supporting,adjacent,column,enemyFiles,guardedFiles,isPassed] ++ ": " ++ show score) ())
             
