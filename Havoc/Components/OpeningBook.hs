@@ -66,6 +66,12 @@ bookMove (bounds, bookDepth, book)
         topNode = head book
         topMove = (decodeMove bounds) . rootLabel $ topNode
         
+bookMoveCutoff :: Int -> OpeningBook -> Maybe (Move, OpeningBook)
+bookMoveCutoff depth book = if (bookDepth book <= depth) then Nothing else bookMove book
+        
+bookDepth :: OpeningBook -> Int
+bookDepth (bounds, depth, book) = depth
+        
 topLine :: OpeningBook -> [Move]
 topLine book = unfoldr bookMove book
 

@@ -5,6 +5,7 @@ import Control.Monad
 import Control.Monad.ST
 import Data.List
 import Data.Maybe
+import Data.Time.Clock
 import Data.Time.LocalTime
 import Data.Time.Format
 import Random
@@ -14,6 +15,7 @@ import System.Console.Readline
 import System.Directory
 import System.IO
 import System.Locale
+import Havoc.Components.OpeningBook
 import Havoc.Game
 import Havoc.Game.Move
 import Havoc.Game.State
@@ -28,39 +30,48 @@ import Havoc.Game.MiniChess
 
 -- Player definitions
 
+type MCPlayer = PlayerDebug (MiniChess RealWorld)
+
 randomChoice xs = do
     r <- getStdRandom index
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
-mcRandomMove :: PlayerDebug (MiniChess RealWorld)
-mcRandomMove debugLn state = do
+mcRandomMove :: OpeningBook -> MCPlayer
+mcRandomMove _ debugLn state = do
     moves <- stToIO $ moveGen state
     move <- randomChoice moves
     return $ PlayerResult (Just (1, 1)) move
 
-mcNegamaxMove' mover debugLn state = do
-    (depth, nodes, moves) <- mover debugLn 7 state
-    scores <- stToIO $ showScoredMoves state moves
-    debugLn $ "Choosing from moves: " ++ scores
-    (s, m) <- randomChoice moves
-    return $ PlayerResult (Just (depth, nodes)) m
+type Mover = (String -> IO ()) -> NominalDiffTime -> MiniChess RealWorld -> IO (Int, Int, [(Int, Move)])
+mcNegamaxMove' :: Mover -> OpeningBook -> MCPlayer
+mcNegamaxMove' mover book debugLn state = do
+    case bookMoveCutoff 7 book of
+        Just (m, _) -> do moveText <- stToIO $ showMove' state m
+                          debugLn $ "Opening book hit: " ++ moveText
+                          return $ PlayerResult (Just (bookDepth book, 0)) m
+        
+        Nothing     -> do (depth, nodes, moves) <- mover debugLn 7 state
+                          scores <- stToIO $ showScoredMoves state moves
+                          debugLn $ "Choosing from moves: " ++ scores
+                          (s, m) <- randomChoice moves
+                          return $ PlayerResult (Just (depth, nodes)) m
 
 mcNegamaxMove       = mcNegamaxMove' negamaxMovesID
 mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMovesID
      
-mcHumanMove :: PlayerDebug (MiniChess RealWorld)
-mcHumanMove debugLn state = do 
+mcHumanMove :: OpeningBook -> MCPlayer
+mcHumanMove book debugLn state = do
     line <- readline "Your move: "
     case line of
       Nothing   -> do putStrLn "quit."; exitWith ExitSuccess
       Just text -> catch       (do move <- stToIO $ humanMove state text
                                    return $! PlayerResult Nothing move)
-                         (\e -> do putStrLn (show e)
-                                   mcHumanMove debugLn state)
+                         (\e -> do putStrLn (show (e :: ErrorCall))
+                                   mcHumanMove book debugLn state)
                         
-mcIOMove :: PlayerDebug (MiniChess RealWorld)
-mcIOMove debugLn state = do
+mcIOMove :: OpeningBook -> MCPlayer
+mcIOMove book debugLn state = do
     hFlush stdout
     line <- getLine
     let text = fromMaybe line (stripPrefix "! " line)
@@ -70,7 +81,8 @@ mcIOMove debugLn state = do
 data PlayerType = Human | IO | Random | Negamax | NegamaxPruned
     deriving (Show, Read, Eq, Enum)
 
-playerFor :: PlayerType -> PlayerDebug (MiniChess RealWorld)
+
+playerFor :: PlayerType -> (OpeningBook -> MCPlayer)
 playerFor Human         = mcHumanMove
 playerFor IO            = mcIOMove
 playerFor Random        = mcRandomMove
@@ -79,8 +91,8 @@ playerFor NegamaxPruned = mcNegamaxPrunedMove
 
 --- Game loop
 
-play :: PlayerType -> PlayerType -> (String -> IO()) -> Bool -> MiniChess RealWorld -> IO (MiniChess RealWorld)
-play whitePlayer blackPlayer logLn debug state = do
+play :: PlayerType -> PlayerType -> OpeningBook -> (String -> IO()) -> Bool -> MiniChess RealWorld -> IO (MiniChess RealWorld)
+play curPlayer nextPlayer book logLn debug state = do
     status <- stToIO $ gameStatus state
     case status of
         status@(End _) -> do (stToIO $ (showGameState . gameState) state) >>= putStrLn
@@ -90,10 +102,7 @@ play whitePlayer blackPlayer logLn debug state = do
                              putStrLn $ explainStatus state status
                              return state
                                    
-        Continue moves -> do let curPlayer = (playerOfColor . turnColor . gameState) state
-                                 oppIsIO   = (playerOfColor . invertColor . turnColor . gameState) state == IO
-                             
-                             (stToIO $ (showGameState . gameState) state) >>= putStrLn
+        Continue moves -> do (stToIO $ (showGameState . gameState) state) >>= putStrLn
                              (stToIO $ score state) >>= (\s -> debugLn $ "Current board score: " ++ show s)
                              
                              putStrLn $ show curPlayer ++ " moving..."
@@ -107,21 +116,19 @@ play whitePlayer blackPlayer logLn debug state = do
                                         stats)
                                      ++ " after " ++ (show dt)
                              (stToIO $ showMove' state m) >>= logLn
-                             when oppIsIO $
+                             
+                             when (nextPlayer == IO) $
                                 (stToIO $ showMove' state m) >>= putStrLn . ("! "++)
                              putStrLn ""
                              
-                             (newstate, diff) <- stToIO $ doMove state m
-                             play whitePlayer blackPlayer logLn debug newstate
+                             (newstate, _) <- stToIO $ doMove state m
+                             let book' = advanceBook book m
+                             
+                             play nextPlayer curPlayer book' logLn debug newstate
     where
-        playerOfColor color
-            = case color of
-                White -> whitePlayer
-                Black -> blackPlayer
+        hasIO = curPlayer == IO || nextPlayer == IO
                 
-        hasIO = whitePlayer == IO || blackPlayer == IO
-                
-        playerMove player = playerFor player debugLn
+        playerMove player = playerFor player book debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
@@ -132,12 +139,14 @@ play whitePlayer blackPlayer logLn debug state = do
 data Options = Options { help        :: Bool
                        , list        :: Bool
                        , logName     :: Maybe String
+                       , bookPath    :: Maybe FilePath
                        , debug       :: Bool
                        , whitePlayer :: PlayerType
                        , blackPlayer :: PlayerType   }
 
 defaultOptions = Options { help        = False
                          , list        = False
+                         , bookPath    = Nothing
                          , logName     = Nothing
                          , debug       = False
                          , whitePlayer = Human
@@ -149,6 +158,8 @@ options =
     , Option ['b'] ["black"]   (ReqArg (readPlayer Black) "PLAYER")     ("Black player type (default: " ++ (show . blackPlayer) defaultOptions  ++ ")")
     , Option ['l'] ["log"]     (OptArg ((\name opts -> opts { logName = Just name })
                                        . fromMaybe "game") "FILE")      "Log file name"
+    , Option []    ["book"]    (ReqArg (\path opts -> opts { bookPath = Just path })
+                                                           "PATH")      "Opening book path"
     , Option ['d'] ["debug"]   (NoArg (\opts -> opts { debug = True })) "Enable debugging output"
     , Option []    ["list"]    (NoArg (\opts -> opts { list = True }))  "List player types"
     , Option ['h'] ["help"]    (NoArg (\opts -> opts { help = True }))  "This help"
@@ -215,9 +226,14 @@ main = do
 start opts
     | help opts  = showHelp
     | list opts  = showPlayers
-    | otherwise  = case logName opts of
-                     Nothing   -> do startPlay noLog; return ()
-                     Just name -> logGame name startPlay
+    | otherwise  = do
+        book <- case bookPath opts of
+          Nothing   -> return emptyBook
+          Just path -> loadBook path
+          
+        case logName opts of
+          Nothing   -> do startPlay book noLog; return ()
+          Just name -> logGame name (startPlay book)
     where
-        startPlay log = stToIO startState >>= play (whitePlayer opts) (blackPlayer opts) log (debug opts)
+        startPlay book log = stToIO startState >>= play (whitePlayer opts) (blackPlayer opts) book log (debug opts)
         noLog = (\_ -> return ())

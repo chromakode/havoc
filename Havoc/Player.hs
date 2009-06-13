@@ -12,7 +12,6 @@ import Havoc.Notation
 
 data PlayerResult = PlayerResult { searchStats :: Maybe (Int,Int)
                                  , playerMove  :: Move            }
-
 type Player a = a -> IO PlayerResult
 type PlayerDebug a = (String -> IO ()) -> Player a
 
