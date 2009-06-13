@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Havoc.Player.NegamaxPruned where
 
 import Control.Monad
@@ -40,11 +42,10 @@ negamaxPrunedTreeStatus depthStatus state nodeCount depth scoreRange ourBest the
                     (liftM trimForest) $ runPrune sortedMoves ourBest (-max_eval_score) []
 
     where
-        trimForest (score, forest)
-            = (score, trimmedForest)
+        trimForest (maxScore, forest)
+            = (maxScore, trimmedForest)
             where
-                maxScore = maximum (map (scoreOf . rootLabel) forest)
-                trimmedForest = filter (\(Node (Evaluated s _) _) -> maxScore - s <= scoreRange) forest
+                !trimmedForest = filter (\(Node (Evaluated s _) _) -> maxScore - s <= scoreRange) forest
     
         runPrune []           ourBest localBest subForest = return (localBest, subForest)
         runPrune (move:moves) ourBest localBest subForest = do
@@ -57,7 +58,7 @@ negamaxPrunedTreeStatus depthStatus state nodeCount depth scoreRange ourBest the
             
             let localBest' = max localBest (-moveValueNeg)
                 ourBest'   = max ourBest localBest'
-                node       = Node (Evaluated moveValueNeg move) subTree
+                node       = Node (Evaluated (-moveValueNeg) move) subTree
                 subForest' = node:subForest
             
             if (localBest' >= (theirBest + scoreRange))
