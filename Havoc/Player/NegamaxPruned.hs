@@ -61,7 +61,7 @@ negamaxPrunedTreeStatus depthStatus state nodeCount depth scoreRange ourBest the
                 node       = Node (Evaluated (-moveValueNeg) move) subTree
                 subForest' = node:subForest
             
-            if (localBest' >= (theirBest + scoreRange))
+            if (localBest' >= (theirBest + scoreRange + 1))
                 -- This plays out better than our opponent can force us to be. Stop searching here.
                 then return (localBest', subForest')
                 
@@ -73,7 +73,7 @@ negamaxPrunedTree = negamaxPrunedTreeStatus (const (return ()))
 
 negamaxPruned :: (Game a) => a RealWorld -> IORef Int -> Int -> Score -> Score -> IO Score
 negamaxPruned state nodeCount depth ourBest theirBest = do
-    (score, movespace) <- negamaxPrunedTree state nodeCount depth 0 ourBest theirBest
+    (score, movespace) <- negamaxPrunedTree state nodeCount depth (-1) ourBest theirBest
     return score
                 
 negamaxPrunedMoves :: (Game a) => a RealWorld -> Int -> IO (Int, [(Score, Move)])
