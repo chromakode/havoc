@@ -27,12 +27,12 @@ decodeMove :: ((Int,Int), (Int,Int)) -> EncodedMove -> Move
 decodeMove (lB, uB) encMove = (range moveBounds) !! (fromIntegral encMove)
     where moveBounds = ((lB,lB), (uB,uB)) 
 
-genBook :: (Game a) => (Int -> IO ()) -> a RealWorld -> Int -> IO OpeningBook
-genBook status state depth = do
+genBook :: (Game a) => (Int -> IO ()) -> a RealWorld -> Int -> Score -> IO OpeningBook
+genBook status state depth scoreRange = do
     nodeCount <- newIORef 0
     bounds <- stToIO $ getBounds $ (board . gameState) state
     
-    (_, moveForest) <- negamaxPrunedTreeStatus status state nodeCount depth (-max_eval_score) (max_eval_score)
+    (_, moveForest) <- negamaxPrunedTreeStatus status state nodeCount depth scoreRange (-max_eval_score) (max_eval_score)
     
     let encode = (encodeMove bounds) . stripEvaluated
     return $ (flip unfoldForest) (sortForest moveForest)
