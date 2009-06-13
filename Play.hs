@@ -56,7 +56,7 @@ mcHumanMove debugLn state = do
       Nothing   -> do putStrLn "quit."; exitWith ExitSuccess
       Just text -> catch       (do move <- stToIO $ humanMove state text
                                    return $! PlayerResult Nothing move)
-                         (\e -> do putStrLn (show (e :: ErrorCall))
+                         (\e -> do putStrLn (show e)
                                    mcHumanMove debugLn state)
                         
 mcIOMove :: PlayerDebug (MiniChess RealWorld)

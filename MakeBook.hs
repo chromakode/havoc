@@ -20,17 +20,18 @@ doGenBook state depth scoreRange = do
     putStrLn "]"
     return book 
     where
-        status curDepth = do
-            case curDepth of
-                _| curDepth == depth     -> putStr "+"
-                _| curDepth == (depth-1) -> putStr "-"
-                _| curDepth >= 6         -> putStr "."
-                otherwise                -> return ()
+	cs = "0123456789"
+	ccount = length cs
+        status curDepth
+            | diff == 0                       = putChar $ head cs
+            | diff < ccount && curDepth >= 7  = putChar $ cs !! diff
+            | otherwise                       = return ()
+            where diff = depth - curDepth
             
 main = do
     hSetBuffering stdout NoBuffering
     start <- stToIO $ startState :: IO (MiniChess RealWorld)
     bounds <- stToIO $ getBounds $ (board . gameState) start
-    book <- doGenBook start 9 5
-    putStr $ drawForest $ fmap (fmap ((showMove bounds) . (decodeMove bounds))) book
+    book <- doGenBook start 11 5
     saveBook "openingbook" book
+    --putStr $ drawForest $ fmap (fmap ((showMove bounds) . (decodeMove bounds))) book
