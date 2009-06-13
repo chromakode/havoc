@@ -32,6 +32,9 @@ main = do
     hSetBuffering stdout NoBuffering
     start <- stToIO $ startState :: IO (MiniChess RealWorld)
     bounds <- stToIO $ getBounds $ (board . gameState) start
-    book <- doGenBook start 11 5
-    saveBook "openingbook" book
+
+    let depth = 13
+        range = 4
+    book <- doGenBook start depth range
+    saveBook ("openingbook-" ++ show depth ++ "-" ++ show range) book
     --putStr $ drawForest $ fmap (fmap ((showMove bounds) . (decodeMove bounds))) book
