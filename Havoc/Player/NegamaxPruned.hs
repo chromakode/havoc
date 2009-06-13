@@ -47,8 +47,8 @@ negamaxPrunedTreeStatus depthStatus state nodeCount depth scoreRange ourBest the
             where
                 !trimmedForest = filter (\(Node (Evaluated s _) _) -> maxScore - s <= scoreRange) forest
     
-        runPrune []           ourBest localBest subForest = return (localBest, subForest)
-        runPrune (move:moves) ourBest localBest subForest = do
+        runPrune []           ourBest localBest !subForest = return (localBest, subForest)
+        runPrune (move:moves) ourBest localBest !subForest = do
             let recurse = doUndoIO state move (\_ s -> negamaxPrunedTreeStatus depthStatus s nodeCount (depth-1) scoreRange (-theirBest) (-ourBest))
             (moveValueNeg, subTree) <- if not testDoUndo
                                          then recurse
