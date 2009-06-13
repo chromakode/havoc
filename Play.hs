@@ -37,21 +37,22 @@ randomChoice xs = do
     return (xs !! r)
     where index = randomR (0, (length xs)-1)
 
-mcRandomMove :: OpeningBook -> MCPlayer
-mcRandomMove _ debugLn state = do
+mcRandomMove :: NominalDiffTime -> OpeningBook -> MCPlayer
+mcRandomMove _ _ debugLn state = do
     moves <- stToIO $ moveGen state
     move <- randomChoice moves
     return $ PlayerResult (Just (1, 1)) move
 
 type Mover = (String -> IO ()) -> NominalDiffTime -> MiniChess RealWorld -> IO (Int, Int, [(Int, Move)])
-mcNegamaxMove' :: Mover -> OpeningBook -> MCPlayer
-mcNegamaxMove' mover book debugLn state = do
+mcNegamaxMove' :: Mover -> NominalDiffTime -> OpeningBook -> MCPlayer
+mcNegamaxMove' mover remaining book debugLn state = do
     case bookMoveCutoff 7 book of
         Just (m, _) -> do moveText <- stToIO $ showMove' state m
                           debugLn $ "Opening book hit: " ++ moveText
                           return $ PlayerResult (Just (bookDepth book, 0)) m
         
-        Nothing     -> do (depth, nodes, moves) <- mover debugLn 7 state
+        Nothing     -> do let turnTime = (remaining - 1) / (fromIntegral $ 40 - (turn . gameState $ state) + 1)
+                          (depth, nodes, moves) <- mover debugLn turnTime state
                           scores <- stToIO $ showScoredMoves state moves
                           debugLn $ "Choosing from moves: " ++ scores
                           (s, m) <- randomChoice moves
@@ -60,18 +61,18 @@ mcNegamaxMove' mover book debugLn state = do
 mcNegamaxMove       = mcNegamaxMove' negamaxMovesID
 mcNegamaxPrunedMove = mcNegamaxMove' negamaxPrunedMovesID
      
-mcHumanMove :: OpeningBook -> MCPlayer
-mcHumanMove book debugLn state = do
+mcHumanMove :: NominalDiffTime ->  OpeningBook -> MCPlayer
+mcHumanMove time book debugLn state = do
     line <- readline "Your move: "
     case line of
       Nothing   -> do putStrLn "quit."; exitWith ExitSuccess
       Just text -> catch       (do move <- stToIO $ humanMove state text
                                    return $! PlayerResult Nothing move)
                          (\e -> do putStrLn (show (e :: ErrorCall))
-                                   mcHumanMove book debugLn state)
+                                   mcHumanMove time book debugLn state)
                         
-mcIOMove :: OpeningBook -> MCPlayer
-mcIOMove book debugLn state = do
+mcIOMove :: NominalDiffTime -> OpeningBook -> MCPlayer
+mcIOMove time book debugLn state = do
     hFlush stdout
     line <- getLine
     let text = fromMaybe line (stripPrefix "! " line)
@@ -82,7 +83,7 @@ data PlayerType = Human | IO | Random | Negamax | NegamaxPruned
     deriving (Show, Read, Eq, Enum)
 
 
-playerFor :: PlayerType -> (OpeningBook -> MCPlayer)
+playerFor :: PlayerType -> (NominalDiffTime -> OpeningBook -> MCPlayer)
 playerFor Human         = mcHumanMove
 playerFor IO            = mcIOMove
 playerFor Random        = mcRandomMove
@@ -91,8 +92,8 @@ playerFor NegamaxPruned = mcNegamaxPrunedMove
 
 --- Game loop
 
-play :: PlayerType -> PlayerType -> OpeningBook -> (String -> IO()) -> Bool -> MiniChess RealWorld -> IO (MiniChess RealWorld)
-play curPlayer nextPlayer book logLn debug state = do
+play :: (PlayerType, NominalDiffTime) -> (PlayerType, NominalDiffTime) -> OpeningBook -> (String -> IO()) -> Bool -> MiniChess RealWorld -> IO (MiniChess RealWorld)
+play (curPlayer, cPTime) (nextPlayer, nPTime) book logLn debug state = do
     status <- stToIO $ gameStatus state
     case status of
         status@(End _) -> do (stToIO $ (showGameState . gameState) state) >>= putStrLn
@@ -102,7 +103,9 @@ play curPlayer nextPlayer book logLn debug state = do
                              putStrLn $ explainStatus state status
                              return state
                                    
-        Continue moves -> do (stToIO $ (showGameState . gameState) state) >>= putStrLn
+        Continue moves -> do startTime <- getCurrentTime
+        
+                             (stToIO $ (showGameState . gameState) state) >>= putStrLn
                              (stToIO $ score state) >>= (\s -> debugLn $ "Current board score: " ++ show s)
                              
                              putStrLn $ show curPlayer ++ " moving..."
@@ -124,11 +127,14 @@ play curPlayer nextPlayer book logLn debug state = do
                              (newstate, _) <- stToIO $ doMove state m
                              let book' = advanceBook book m
                              
-                             play nextPlayer curPlayer book' logLn debug newstate
+                             endTime <- getCurrentTime
+                             let cPTime' = cPTime - (diffUTCTime endTime startTime)
+                             
+                             play (nextPlayer, nPTime) (curPlayer, cPTime') book' logLn debug newstate
     where
         hasIO = curPlayer == IO || nextPlayer == IO
                 
-        playerMove player = playerFor player book debugLn
+        playerMove player = playerFor player cPTime book debugLn
                 
         debugLn text
             | debug == True  = do putStr "[debug] "; putStrLn text
@@ -235,5 +241,5 @@ start opts
           Nothing   -> do startPlay book noLog; return ()
           Just name -> logGame name (startPlay book)
     where
-        startPlay book log = stToIO startState >>= play (whitePlayer opts) (blackPlayer opts) book log (debug opts)
+        startPlay book log = stToIO startState >>= play ((whitePlayer opts), 5*60) ((blackPlayer opts), 5*60) book log (debug opts)
         noLog = (\_ -> return ())
