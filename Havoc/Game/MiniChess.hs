@@ -6,7 +6,7 @@ import Data.Array.ST
 import Havoc.Game
 import Havoc.Game.State
 import Havoc.Game.Move
-import Havoc.Globals (checkPawnFiles, checkPawnEval)
+import Havoc.Globals (usePawnFiles, checkPawnFiles, checkPawnEval)
 import Havoc.Utils (copyMArray, swap)
 import Debug.Trace
 
@@ -67,7 +67,7 @@ mcMove (MiniChess eS@(Evaluated oldValue state) pF) move@(fromSquare, toSquare) 
     -- Perform the move
     (newState, diff) <- chessDoMove state move
     diff <- handlePromotion newState diff
-    updatePawnFiles pF diff False
+    when usePawnFiles $ updatePawnFiles pF diff False
     
     when checkPawnFiles printPawnFiles
     
@@ -83,7 +83,7 @@ mcMove (MiniChess eS@(Evaluated oldValue state) pF) move@(fromSquare, toSquare) 
 mcUndoMove :: MiniChess s -> Evaluated MoveDiff -> ST s (MiniChess s)
 mcUndoMove (MiniChess eS@(Evaluated v s) pF) eDiff@(Evaluated _ diff) = do
     eS' <- chessUndoMoveEval eS eDiff
-    updatePawnFiles pF diff True
+    when usePawnFiles $ updatePawnFiles pF diff True
     return $ MiniChess eS' pF
 
 --
@@ -150,25 +150,32 @@ positionScore state pawnFiles position@(square@(row,col), piece@(Piece color pie
             adjacent   <- countPawns [East, West]
             column     <- countPawns [North, South]
 
-            ((_,minCol), (_,maxCol)) <- getBounds pawnFiles            
-            let files = filter (inRange (minCol,maxCol)) $ map (col+) [-1..1]
-            enemyFiles    <- (liftM (length . filter id)) $ countFiles files opponentColor                         
-            guardedFiles' <- (liftM (length . filter id)) $ countFiles files color
-            let guardedFiles = guardedFiles' - 1
-            
-            let isPassed = if enemyFiles == 0 then 1 else 0
-                score = 2  * height + (2 * isPassed * height)
+            pawnFileScore <-
+                if not usePawnFiles
+                  then return 0
+                  else do
+                      ((_,minCol), (_,maxCol)) <- getBounds pawnFiles
+                      let files = filter (inRange (minCol,maxCol)) $ map (col+) [-1..1]
+                      enemyFiles    <- (liftM (length . filter id)) $ countFiles files opponentColor
+                      guardedFiles' <- (liftM (length . filter id)) $ countFiles files color
+                      let guardedFiles = guardedFiles' - 1
+                      let isPassed = if enemyFiles == 0 then 1 else 0
+                    
+                      return $ 2 * isPassed * height
+                             - 8  * enemyFiles
+                             + 3  * guardedFiles
+                             + 40 * isPassed
+                
+            let score = 2  * height
                       + 25 * supporting 
                       + 2  * adjacent
                       - 2  * column
-                      - 8  * enemyFiles
-                      + 3  * guardedFiles
-                      + 40 * isPassed
+                      + pawnFileScore
             
-            when checkPawnEval (return $! trace (show square ++ " | " ++ show [height,supporting,adjacent,column,enemyFiles,guardedFiles,isPassed] ++ ": " ++ show score) ())
+            when checkPawnEval (return $! trace (show square ++ " | " ++ show [height,supporting,adjacent,column,pawnFileScore] ++ ": " ++ show score) ())
             
             return score 
-                   
+            
             where
                 countPawns dirs = (liftM length) $ dirMoves (IsPiece piece) dirs state square
                 countFiles files color = forM files (\file -> do
