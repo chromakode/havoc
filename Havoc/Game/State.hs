@@ -8,76 +8,62 @@ import Data.List
 import Data.Maybe
 import Havoc.Utils (copyMArray)
 
-data Color = White | Black deriving (Eq, Enum, Ix, Ord)
-data PieceType = King | Queen | Bishop | Knight | Rook | Pawn deriving Eq
+data Color = Self | Enemy deriving (Eq, Enum, Ix, Ord)
+data PieceType = Player deriving Eq
 data Piece = Piece { colorOf   :: Color
                    , pieceType :: PieceType }
            | Blank
+           | Wall
            deriving Eq
 type Square = (Int,Int)
 type Position = (Square, Piece)
 type Board s = STArray s Square Piece
 type BoardBounds = (Square, Square)
 
-data GameState s = GameState { turn      :: Int
+data GameState s = GameState { turn  :: Int
                              , turnColor :: Color
-                             , board     :: Board s }
+                             , board :: Board s }
 
 instance Show Color where
-    show White = "W"
-    show Black = "B"
+    show Self  = "1"
+    show Enemy = "2"
 
 instance Read Color where
     readsPrec p s = [(color, t) | (c,t) <- lex s, color <- colorOf c]
         where
-            colorOf "W" = [White]
-            colorOf "B" = [Black]
+            colorOf "1" = [Self]
+            colorOf "2" = [Enemy]
             colorOf _   = []
 
 invertColor :: Color -> Color
-invertColor White = Black
-invertColor Black = White
+invertColor Self  = Enemy
+invertColor Enemy = Self
 
 colorName :: Color -> String
-colorName White = "White"
-colorName Black = "Black"
+colorName Self  = "Self"
+colorName Enemy = "Enemy"
 
 instance Show PieceType where
-    show King   = "K"
-    show Queen  = "Q"
-    show Bishop = "B"
-    show Knight = "N"
-    show Rook   = "R"
-    show Pawn   = "P"
+    show Player = "@"
 
 instance Read PieceType where
     readsPrec p s = [(piecetype, t) | (p,t) <- lex s, piecetype <- pieceTypeOf p]
         where
-            pieceTypeOf "K" = [King]
-            pieceTypeOf "Q" = [Queen]
-            pieceTypeOf "B" = [Bishop]
-            pieceTypeOf "N" = [Knight]
-            pieceTypeOf "R" = [Rook]
-            pieceTypeOf "P" = [Pawn]    
-            pieceTypeOf _   = []
+            pieceTypeOf "@" = [Player]
     
 instance Show Piece where
-    show Blank = "."
-    show (Piece color piece)
-        = map colorCase (show piece)
-        where colorCase = case color of
-                            White -> toUpper
-                            Black -> toLower
+    show Blank = " "
+    show Wall  = "#"
+    show (Piece Self Player)  = "1"
+    show (Piece Enemy Player) = "2"
 
 instance Read Piece where
     readsPrec p s = [(piece, t') | (s', t) <- lex s, (piece, t') <- pieceOf s']
         where
-            pieceOf "." = [(Blank, "")]
-            pieceOf s   = [(Piece (colorOf (head s)) piecetype, t)
-                              | (piecetype, t) <- readsPrec p (map toUpper s)]
-            colorOf c
-                | isUpper c  = White
-                | otherwise  = Black
+            pieceOf " " = [(Blank, "")]
+            pieceOf "#" = [(Wall, "")]
+            pieceOf "1" = [(Piece Self Player, "")]
+            pieceOf "2" = [(Piece Enemy Player, "")]
 
 readBoard :: String -> ST s (Board s)
 readBoard text = do
@@ -95,46 +81,44 @@ showBoard board = do
                                               | i <- [li..ui]]
     return $ unlines $ (map . concatMap) show pieces
 
-isBlank :: Board s -> Square -> ST s Bool
+squareIs :: (Piece -> Bool) -> Board s -> Square -> ST s Bool
+squareIs pred board square = do
+    piece <- readArray board square
+    return $ pred piece
+
+isBlank :: Piece -> Bool
 {-# INLINE isBlank #-}
-isBlank board square = do
-    piece <- readArray board square
-    return $ piece == Blank
+isBlank piece = piece == Blank
 
-isColor :: Board s -> Color -> Square -> ST s Bool
-isColor board color square = do
-    piece <- readArray board square
-    return $ (colorOf piece) == color
+isWall :: Piece -> Bool
+{-# INLINE isWall #-}
+isWall piece = piece == Wall
 
-isTurnColor :: GameState s -> Square -> ST s Bool
-isTurnColor (GameState turn turnColor board) square = isColor board turnColor square
+isPlayer :: Piece -> Bool
+{-# INLINE isPlayer #-}
+isPlayer Blank = False
+isPlayer Wall  = False
+isPlayer (Piece _ Player) = True
+
+isColor :: Color -> Piece -> Bool
+isColor color piece = (colorOf piece) == color
 
 pieces :: Board s -> ST s [Piece]
 {-# INLINE pieces #-}
 pieces board = do
     elems <- getElems board
-    return $ filter (/=Blank) elems
+    return $ filter (isPlayer) elems
 
 positions :: Board s -> ST s [Position]
 {-# INLINE positions #-}
 positions board = do
     assocs <- getAssocs board
-    return $ filter (\(s,p) -> p /= Blank) assocs
-
-startRow, endRow :: Color -> Board s -> ST s Int
-{-# INLINE endRow #-}
-startRow color board = do
-    ((li,lj),(ui,uj)) <- getBounds board
-    return $ case color of
-               White -> ui
-               Black -> li
-               
-endRow color = startRow (invertColor color)
+    return $ filter (\(s,p) -> isPlayer p) assocs
 
 showGameState :: GameState s -> ST s String
 showGameState (GameState turn turnColor board) = do
     boardText <- showBoard board
-    return $ show turn ++ " " ++ show turnColor ++ "\n"
+    return $ show turn ++ " " ++ show turnColor ++ " " ++ "\n"
                   ++ boardText
 
 readGameState :: String -> ST s (GameState s)  
